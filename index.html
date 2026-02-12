@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>住まいの費用比較シミュレーター</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .input-card { margin-bottom: 20px; }
+        .result-chart { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <h1 class="text-center mb-4">🏠 住まいの費用比較シミュレーター</h1>
+    <p class="text-muted text-center">50年間のトータルコストを概算します</p>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card input-card shadow-sm">
+                <div class="card-header bg-success text-white">賃貸の条件</div>
+                <div class="card-body">
+                    <label>家賃/月 (円)</label>
+                    <input type="number" id="rent_monthly" class="form-control mb-2" value="160000">
+                    <label>更新料 (2年毎/円)</label>
+                    <input type="number" id="rent_update" class="form-control mb-2" value="160000">
+                </div>
+            </div>
+
+            <div class="card input-card shadow-sm">
+                <div class="card-header bg-primary text-white">購入の条件 (マンション)</div>
+                <div class="card-body">
+                    <label>物件価格 (円)</label>
+                    <input type="number" id="buy_price" class="form-control mb-2" value="50000000">
+                    <label>ローン金利 (%)</label>
+                    <input type="number" id="loan_interest" class="form-control mb-2" step="0.1" value="1.0">
+                    <label>管理・修繕費/月 (円)</label>
+                    <input type="number" id="maint_monthly" class="form-control mb-2" value="28000">
+                </div>
+            </div>
+            
+            <button class="btn btn-dark w-100 py-2" onclick="calculate()">シミュレーション実行</button>
+        </div>
+
+        <div class="col-md-8">
+            <div class="result-chart shadow-sm">
+                <canvas id="costChart"></canvas>
+            </div>
+            <div id="summary" class="mt-4 p-3 bg-white rounded shadow-sm">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let myChart;
+
+function calculate() {
+    const years = 50;
+    const rentMonthly = parseFloat(document.getElementById('rent_monthly').value);
+    const rentUpdate = parseFloat(document.getElementById('rent_update').value);
+    const buyPrice = parseFloat(document.getElementById('buy_price').value);
+    const maintMonthly = parseFloat(document.getElementById('maint_monthly').value);
+    const interest = parseFloat(document.getElementById('loan_interest').value) / 100 / 12;
+    
+    // ローン計算 (元利均等)
+    const loanTerm = 35 * 12;
+    const monthlyPayment = (buyPrice * interest * Math.pow(1 + interest, loanTerm)) / (Math.pow(1 + interest, loanTerm) - 1);
+
+    let rentTotal = [];
+    let buyTotal = [];
+    let labels = [];
+
+    let currentRentSum = 0;
+    let currentBuySum = 0; // 初期費用などは今回簡易化
+
+    for (let y = 1; y <= years; y++) {
+        labels.push(y + "年目");
+        
+        // 賃貸計算
+        currentRentSum += (rentMonthly * 12);
+        if (y % 2 === 0) currentRentSum += rentUpdate;
+        rentTotal.push(currentRentSum);
+
+        // 購入計算
+        if (y <= 35) {
+            currentBuySum += (monthlyPayment * 12);
+        }
+        currentBuySum += (maintMonthly * 12);
+        buyTotal.push(currentBuySum);
+    }
+
+    updateChart(labels, rentTotal, buyTotal);
+    document.getElementById('summary').innerHTML = `
+        <h5>【50年後の結果】</h5>
+        <p>賃貸総額: <strong>¥${rentTotal[49].toLocaleString()}</strong></p>
+        <p>購入総額: <strong>¥${buyTotal[49].toLocaleString()}</strong></p>
+    `;
+}
+
+function updateChart(labels, rentData, buyData) {
+    const ctx = document.getElementById('costChart').getContext('2d');
+    if (myChart) myChart.destroy();
+    
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: '賃貸', data: rentData, borderColor: '#198754', fill: false },
+                { label: '購入', data: buyData, borderColor: '#0d6efd', fill: false }
+            ]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+    });
+}
+
+// 初回実行
+calculate();
+</script>
+</body>
+</html>
