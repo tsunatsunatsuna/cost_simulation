@@ -3,123 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの費用比較シミュレーター</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>住まいの実質コスト比較</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #f8f9fa; }
-        .input-card { margin-bottom: 20px; }
-        .result-chart { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        :root { --primary-color: #2c3e50; }
+        body { background-color: #f4f7f6; font-size: 0.9rem; }
+        .card-header { font-weight: bold; }
+        .info-icon { cursor: pointer; color: #0d6efd; margin-left: 5px; }
+        .result-box { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .nav-pills .nav-link.active { background-color: var(--primary-color); }
     </style>
 </head>
 <body>
 
-<div class="container py-5">
-    <h1 class="text-center mb-4">🏠 住まいの費用比較シミュレーター</h1>
-    <p class="text-muted text-center">50年間のトータルコストを概算します</p>
+<div class="container-fluid py-4">
+    <h2 class="text-center mb-4">🏠 不動産比較シミュレーター</h2>
 
     <div class="row">
-        <div class="col-md-4">
-            <div class="card input-card shadow-sm">
-                <div class="card-header bg-success text-white">賃貸の条件</div>
-                <div class="card-body">
-                    <label>家賃/月 (円)</label>
-                    <input type="number" id="rent_monthly" class="form-control mb-2" value="160000">
-                    <label>更新料 (2年毎/円)</label>
-                    <input type="number" id="rent_update" class="form-control mb-2" value="160000">
+        <div class="col-lg-5">
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-dark text-white">共通設定</div>
+                <div class="card-body row">
+                    <div class="col-6 mb-2">
+                        <label>比較年数</label>
+                        <select id="sim_years" class="form-select">
+                            <option value="10">10年</option>
+                            <option value="20">20年</option>
+                            <option value="35" selected>35年</option>
+                        </select>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label>インフレ率 (%)</label>
+                        <input type="number" id="inflation" class="form-control" value="0" step="0.1">
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label>世帯年収 (万円)</label>
+                        <input type="number" id="income" class="form-control" value="800">
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label>売却するか</label>
+                        <select id="will_sell" class="form-select">
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="card input-card shadow-sm">
-                <div class="card-header bg-primary text-white">購入の条件 (マンション)</div>
-                <div class="card-body">
+            <ul class="nav nav-pills mb-3 justify-content-center" id="pills-tab" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-rent">賃貸</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-mansion">マンション</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-house">戸建</button></li>
+            </ul>
+
+            <div class="tab-content border p-3 bg-white rounded shadow-sm">
+                <div class="tab-pane fade show active" id="tab-rent">
+                    <label>想定家賃 (円)</label>
+                    <input type="number" id="rent_price" class="form-control mb-2" value="160000">
+                    <label>更新料 (2年毎/円)</label>
+                    <input type="number" id="rent_update" class="form-control mb-2" value="160000">
+                    <label>家賃上昇率 (%)</label>
+                    <input type="number" id="rent_up_rate" class="form-control mb-2" value="0">
+                    <p class="text-muted small">※初期費用は家賃の5倍(推奨)で自動計算されます</p>
+                </div>
+
+                <div class="tab-pane fade" id="tab-mansion">
+                    <div class="mb-2">
+                        <input type="radio" name="m_type" value="new" checked onclick="toggleMansion(false)"> 新築 
+                        <input type="radio" name="m_type" value="old" onclick="toggleMansion(true)"> 中古
+                    </div>
                     <label>物件価格 (円)</label>
-                    <input type="number" id="buy_price" class="form-control mb-2" value="50000000">
-                    <label>ローン金利 (%)</label>
-                    <input type="number" id="loan_interest" class="form-control mb-2" step="0.1" value="1.0">
-                    <label>管理・修繕費/月 (円)</label>
-                    <input type="number" id="maint_monthly" class="form-control mb-2" value="28000">
+                    <input type="number" id="m_price" class="form-control mb-2" value="50000000">
+                    <div id="m_old_options" style="display:none;">
+                        <label>築年数</label><input type="number" id="m_age" class="form-control mb-2" value="10">
+                        <label>修繕積立上昇率 (%)</label><input type="number" id="m_up_rate" class="form-control mb-2" value="3.0">
+                    </div>
+                    <label>管理・修繕費/月</label><input type="number" id="m_maint" class="form-control mb-2" value="30000">
+                    <label>金利タイプ</label>
+                    <select id="m_loan_type" class="form-select mb-2" onchange="toggleRate('m')">
+                        <option value="flex">変動</option>
+                        <option value="fixed">固定 (2%)</option>
+                    </select>
+                    <input type="number" id="m_rate" class="form-control mb-2" value="0.5" step="0.1">
+                </div>
+
+                <div class="tab-pane fade" id="tab-house">
+                    <div class="mb-2">
+                        <input type="radio" name="h_type" value="new" checked onclick="toggleHouse(false)"> 新築 
+                        <input type="radio" name="h_type" value="old" onclick="toggleHouse(true)"> 中古
+                    </div>
+                    <label>物件価格 (円)</label>
+                    <input type="number" id="h_price" class="form-control mb-2" value="50000000">
+                    <div id="h_old_options" style="display:none;">
+                        <label>築年数</label><input type="number" id="h_age" class="form-control mb-2" value="15">
+                        <label>建物減価率 (%)</label><input type="number" id="h_depre" class="form-control mb-2" value="3.0">
+                    </div>
+                    <label>大規模修繕費 (円/回)</label><input type="number" id="h_maint" class="form-control mb-2" value="2000000">
+                    <label>ローン期間</label>
+                    <select id="h_loan_term" class="form-select mb-2">
+                        <option value="15">15年</option>
+                        <option value="25">25年</option>
+                        <option value="35" selected>35年</option>
+                    </select>
                 </div>
             </div>
             
-            <button class="btn btn-dark w-100 py-2" onclick="calculate()">シミュレーション実行</button>
+            <button class="btn btn-primary w-100 mt-3 py-3 fw-bold" onclick="runSimulation()">シミュレーション計算実行</button>
         </div>
 
-        <div class="col-md-8">
-            <div class="result-chart shadow-sm">
-                <canvas id="costChart"></canvas>
-            </div>
-            <div id="summary" class="mt-4 p-3 bg-white rounded shadow-sm">
+        <div class="col-lg-7">
+            <div class="result-box">
+                <h4>📊 比較結果</h4>
+                <canvas id="mainChart" height="150"></canvas>
+                <div class="table-responsive mt-3">
+                    <table class="table table-bordered text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>項目</th>
+                                <th>賃貸</th>
+                                <th>マンション</th>
+                                <th>戸建</th>
+                            </tr>
+                        </thead>
+                        <tbody id="result-table-body">
+                            </tbody>
+                    </table>
                 </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-let myChart;
+// --- UI制御 ---
+function toggleMansion(isOld) { document.getElementById('m_old_options').style.display = isOld ? 'block' : 'none'; }
+function toggleHouse(isOld) { document.getElementById('h_old_options').style.display = isOld ? 'block' : 'none'; }
+function toggleRate(prefix) {
+    const type = document.getElementById(prefix + '_loan_type').value;
+    const rateInput = document.getElementById(prefix + '_rate');
+    if(type === 'fixed') { rateInput.value = 2.0; rateInput.disabled = true; }
+    else { rateInput.disabled = false; }
+}
 
-function calculate() {
-    const years = 50;
-    const rentMonthly = parseFloat(document.getElementById('rent_monthly').value);
+// --- 計算ロジック ---
+function runSimulation() {
+    const years = parseInt(document.getElementById('sim_years').value);
+    const inflation = parseFloat(document.getElementById('inflation').value) / 100;
+    const willSell = document.getElementById('will_sell').value === 'yes';
+
+    // 1. 賃貸計算
+    const rentBase = parseFloat(document.getElementById('rent_price').value);
     const rentUpdate = parseFloat(document.getElementById('rent_update').value);
-    const buyPrice = parseFloat(document.getElementById('buy_price').value);
-    const maintMonthly = parseFloat(document.getElementById('maint_monthly').value);
-    const interest = parseFloat(document.getElementById('loan_interest').value) / 100 / 12;
-    
-    // ローン計算 (元利均等)
-    const loanTerm = 35 * 12;
-    const monthlyPayment = (buyPrice * interest * Math.pow(1 + interest, loanTerm)) / (Math.pow(1 + interest, loanTerm) - 1);
-
-    let rentTotal = [];
-    let buyTotal = [];
-    let labels = [];
-
-    let currentRentSum = 0;
-    let currentBuySum = 0; // 初期費用などは今回簡易化
-
-    for (let y = 1; y <= years; y++) {
-        labels.push(y + "年目");
-        
-        // 賃貸計算
-        currentRentSum += (rentMonthly * 12);
-        if (y % 2 === 0) currentRentSum += rentUpdate;
-        rentTotal.push(currentRentSum);
-
-        // 購入計算
-        if (y <= 35) {
-            currentBuySum += (monthlyPayment * 12);
-        }
-        currentBuySum += (maintMonthly * 12);
-        buyTotal.push(currentBuySum);
+    const initRent = rentBase * 5; // 初期費用
+    let rentTotal = initRent;
+    for(let i=1; i<=years; i++) {
+        rentTotal += (rentBase * 12) * Math.pow(1 + inflation, i);
+        if(i % 2 === 0) rentTotal += rentUpdate;
     }
 
-    updateChart(labels, rentTotal, buyTotal);
-    document.getElementById('summary').innerHTML = `
-        <h5>【50年後の結果】</h5>
-        <p>賃貸総額: <strong>¥${rentTotal[49].toLocaleString()}</strong></p>
-        <p>購入総額: <strong>¥${buyTotal[49].toLocaleString()}</strong></p>
+    // 2. マンション計算 (簡易)
+    const mPrice = parseFloat(document.getElementById('m_price').value);
+    const mRate = parseFloat(document.getElementById('m_rate').value) / 100 / 12;
+    const mPayment = (mPrice * mRate * Math.pow(1+mRate, 35*12)) / (Math.pow(1+mRate, 35*12)-1);
+    let mTotal = mPrice * 0.05; // 諸費用
+    mTotal += (mPayment * 12 * Math.min(years, 35));
+    mTotal += (parseFloat(document.getElementById('m_maint').value) * 12 * years);
+    
+    // 売却想定 (年2%下落と仮定)
+    const mSale = willSell ? mPrice * Math.pow(0.98, years) : 0;
+    const mRealCost = mTotal - mSale;
+
+    // 3. 戸建計算 (簡易)
+    const hPrice = parseFloat(document.getElementById('h_price').value);
+    let hTotal = hPrice * 0.05 + (mPayment * 12 * Math.min(years, 35)); // ローンはマンションと同額計算
+    hTotal += parseFloat(document.getElementById('h_maint').value) * Math.floor(years/10); // 10年毎に修繕
+
+    const hSale = willSell ? hPrice * 0.5 : 0; // 土地値
+    const hRealCost = hTotal - hSale;
+
+    // テーブル更新
+    const tbody = document.getElementById('result-table-body');
+    tbody.innerHTML = `
+        <tr>
+            <td>総支払額</td>
+            <td>¥${Math.round(rentTotal).toLocaleString()}</td>
+            <td>¥${Math.round(mTotal).toLocaleString()}</td>
+            <td>¥${Math.round(hTotal).toLocaleString()}</td>
+        </tr>
+        <tr class="table-warning fw-bold">
+            <td>実質コスト</td>
+            <td>¥${Math.round(rentTotal).toLocaleString()}</td>
+            <td>¥${Math.round(mRealCost).toLocaleString()}</td>
+            <td>¥${Math.round(hRealCost).toLocaleString()}</td>
+        </tr>
+        <tr>
+            <td>月額実質負担</td>
+            <td>¥${Math.round(rentTotal/years/12).toLocaleString()}</td>
+            <td>¥${Math.round(mRealCost/years/12).toLocaleString()}</td>
+            <td>¥${Math.round(hRealCost/years/12).toLocaleString()}</td>
+        </tr>
     `;
+
+    updateChart(rentTotal, mRealCost, hRealCost);
 }
 
-function updateChart(labels, rentData, buyData) {
-    const ctx = document.getElementById('costChart').getContext('2d');
-    if (myChart) myChart.destroy();
-    
-    myChart = new Chart(ctx, {
-        type: 'line',
+let chart;
+function updateChart(r, m, h) {
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    if(chart) chart.destroy();
+    chart = new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: labels,
-            datasets: [
-                { label: '賃貸', data: rentData, borderColor: '#198754', fill: false },
-                { label: '購入', data: buyData, borderColor: '#0d6efd', fill: false }
-            ]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            labels: ['賃貸', 'マンション', '戸建'],
+            datasets: [{
+                label: '実質コスト (総支払 - 売却益)',
+                data: [r, m, h],
+                backgroundColor: ['#20c997', '#0d6efd', '#fd7e14']
+            }]
+        }
     });
 }
-
-// 初回実行
-calculate();
+window.onload = runSimulation;
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
