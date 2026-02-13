@@ -376,43 +376,7 @@ const UI = {
     closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 };
 
-    openModal() {
-    const bodyEl = document.getElementById('info-body');
-    
-    // 1. 基本計算式の構築
-    let html = `
-        <p><b>${INFO_CONTENT.formula.title}</b></p>
-        <div style="background:#f1f5f9; padding:15px; border-radius:8px; font-size:0.8rem; line-height:1.6; margin-bottom:20px;">
-            ${INFO_CONTENT.formula.items.map(i => `<b>${i.label}</b> = ${i.desc}<br>`).join('')}
-        </div>`;
 
-    // 2. 住宅ローン控除 制度一覧表の構築
-    html += `
-        <p><b>${INFO_CONTENT.taxTable.title}</b></p>
-        <table style="width:100%; border-collapse:collapse; font-size:0.65rem; margin-bottom:20px; text-align:center; line-height:1.2;">
-            <thead>
-                <tr style="background:#e2e8f0;">
-                    ${INFO_CONTENT.taxTable.header.map(h => `<th style="padding:8px; border:1px solid #cbd5e1;">${h}</th>`).join('')}
-                </tr>
-            </thead>
-            <tbody>
-                ${INFO_CONTENT.taxTable.rows.map(r => `
-                    <tr>${r.map(td => `<td style="padding:8px; border:1px solid #cbd5e1; background:white;">${td}</td>`).join('')}</tr>
-                `).join('')}
-            </tbody>
-        </table>`;
-
-    // 3. 詳細解説セクションの構築
-    html += INFO_CONTENT.sections.map(s => `
-        <div style="margin-bottom:15px;">
-            <div style="font-weight:bold; color:#0f172a; margin-bottom:4px; font-size:0.85rem;">${s.h}</div>
-            <div style="font-size:0.8rem; color:#475569; line-height:1.5;">${s.p}</div>
-        </div>
-    `).join('');
-
-    bodyEl.innerHTML = html;
-    document.getElementById('modalInfo').style.display = 'flex';
-}
 
 window.onload = () => { UI.renderInputs(); UI.liveCalc(); };
 </script>
