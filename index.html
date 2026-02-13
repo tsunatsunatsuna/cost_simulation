@@ -160,4 +160,157 @@
         oh: { label: '中古戸建て', color: '#8b5cf6' }
     };
 
-    function switch
+    function switchTab(type, btn) {
+        saveCurrentValues();
+        activeTab = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderInputs();
+        liveCalc();
+    }
+
+    function saveCurrentValues() {
+        const pInput = document.getElementById('val_price');
+        if(!pInput) return;
+        const s = store[activeTab];
+        s.price = parseFloat(pInput.value || 0);
+        if(activeTab !== 'rent') {
+            ['ref','maint','shuzen','rate_inc','shuzen_total','span','depr','minres','kotei'].forEach(key => {
+                const el = document.getElementById('val_' + key);
+                if(el) s[key] = parseFloat(el.value || 0);
+            });
+            s.taxType = document.getElementById('val_tax_type').value;
+        }
+    }
+
+    function renderInputs() {
+        const area = document.getElementById('input-area');
+        const s = store[activeTab];
+        let html = `<div class="field"><label>${activeTab==='rent'?'家賃 (万)':'物件価格 (万)'}</label><input type="number" id="val_price" value="${s.price}" oninput="liveCalc()"></div>`;
+        if(activeTab !== 'rent') {
+            if(activeTab.includes('o')) html += `<div class="field"><label>リフォーム費 (万)</label><input type="number" id="val_ref" value="${s.ref}" oninput="liveCalc()"></div>`;
+            if(activeTab.includes('m')) {
+                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="liveCalc()"></div><div class="field"><label>修繕上昇率 (%)</label><input type="number" id="val_rate_inc" value="${s.rate_inc}" step="0.1" oninput="liveCalc()"></div>`;
+            } else {
+                html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="liveCalc()"></div><div class="field"><label>修繕スパン (年)</label><input type="number" id="val_span" value="${s.span}" oninput="liveCalc()"></div>`;
+            }
+            html += `<div class="field"><label>固定資産税 (年/万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="liveCalc()"></div><div class="field"><label>減価率 (年%)</label><input type="number" id="val_depr" value="${s.depr}" step="0.1" oninput="liveCalc()"></div><div class="field"><label>残価下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" step="1" oninput="liveCalc()"></div>`;
+            html += `<div class="field"><label>控除区分</label><select id="val_tax_type" onchange="liveCalc()"><option value="4500" ${s.taxType==='4500'?'selected':''}>長期優良</option><option value="3500" ${s.taxType==='3500'?'selected':''}>ZEH</option><option value="3000" ${s.taxType==='3000'?'selected':''}>省エネ</option><option value="2000" ${s.taxType==='2000'?'selected':''}>一般中古</option></select></div>`;
+        }
+        area.innerHTML = html;
+    }
+
+    function getLoanMonthly(p, r, n) {
+        if(r === 0) return { total: p / (n * 12), interestInitial: 0 };
+        const ir = r / 100 / 12, im = n * 12;
+        const total = p * ir * Math.pow(1 + ir, im) / (Math.pow(1 + ir, im) - 1);
+        return { total, interestInitial: p * ir };
+    }
+
+    function liveCalc() {
+        saveCurrentValues();
+        const s = store[activeTab];
+        const gRate = parseFloat(document.getElementById('global_rate').value);
+        const gTerm = parseFloat(document.getElementById('global_term').value);
+        let p = 0, i = 0, m = 0, init = 0;
+        if(activeTab === 'rent') { p = s.price; m = s.price / 24; init = s.price * 5; } 
+        else {
+            const res = getLoanMonthly(s.price, gRate, gTerm);
+            i = res.interestInitial; p = res.total - i; init = (s.price * 0.07) + (s.ref || 0);
+            m = activeTab.includes('m') ? (s.maint + s.shuzen + (s.kotei/12)) : (s.shuzen_total / (s.span * 12) + (s.kotei/12));
+        }
+        document.getElementById('live_monthly').innerText = (p + i + m).toFixed(1) + " 万円 / 月";
+        document.getElementById('initial_display').innerText = `初期費用目安: ${Math.round(init).toLocaleString()} 万円`;
+        
+        // 横向き積み上げグラフの更新
+        const ctx = document.getElementById('miniChart').getContext('2d');
+        if(miniChart) miniChart.destroy();
+        miniChart = new Chart(ctx, {
+            type: 'bar', indexAxis: 'y',
+            data: { labels: ['内訳'], datasets: [
+                { label: '元金', data: [p], backgroundColor: config[activeTab].color },
+                { label: '利息', data: [i], backgroundColor: '#fda4af' },
+                { label: '維持/税', data: [m], backgroundColor: '#94a3b8' }
+            ]},
+            options: { 
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                scales: { x: { stacked: true, display: false }, y: { stacked: true, display: false } }
+            }
+        });
+    }
+
+    function runSimulation() {
+        saveCurrentValues();
+        document.getElementById('resultArea').style.display = 'block';
+        const exitYear = parseInt(document.getElementById('exit_year').value);
+        const pair = parseInt(document.getElementById('is_pair').value);
+        const child = parseInt(document.getElementById('is_child').value);
+        const showGross = document.getElementById('show_gross').checked;
+        const showNet = document.getElementById('show_net').checked;
+        const gRate = parseFloat(document.getElementById('global_rate').value);
+        const gTerm = parseInt(document.getElementById('global_term').value);
+
+        let datasets = [], tableRows = '';
+
+        Object.keys(config).forEach(id => {
+            const s = store[id];
+            let historyNet = [], historyGross = [], currentTotalInt = 0, currentTotalMaint = 0, currentTotalTax = 0;
+            let loanRemain = s.price, currentSz = s.shuzen || 0;
+            const res = getLoanMonthly(s.price, gRate, gTerm);
+            const initCost = id === 'rent' ? s.price * 5 : (s.price * 0.07) + (s.ref || 0);
+
+            let rowDataAtExit = {};
+
+            for(let y=1; y<=50; y++) {
+                if(id === 'rent') {
+                    const yearlyRent = s.price * 12;
+                    currentTotalMaint += (yearlyRent + (y % 2 === 0 ? s.price : 0));
+                    const cost = initCost + currentTotalMaint;
+                    historyNet.push(cost); historyGross.push(cost);
+                    if(y === exitYear) rowDataAtExit = { loan: 0, init: initCost, maint: currentTotalMaint, tax: 0, asset: 0, cost: cost };
+                } else {
+                    if(y <= gTerm) {
+                        for(let m=0; m<12; m++) {
+                            const mInt = Math.max(0, loanRemain) * (gRate / 100 / 12);
+                            currentTotalInt += mInt; loanRemain -= (res.total - mInt);
+                        }
+                    }
+                    const yearlyMaint = id.includes('m') ? (s.maint + currentSz) * 12 : (s.shuzen_total / (s.span || 15));
+                    currentTotalMaint += (yearlyMaint + (s.kotei || 0));
+                    if(id.includes('m')) currentSz *= (1 + (s.rate_inc / 100));
+
+                    let limit = parseInt(s.taxType);
+                    if(child == 1) { if(limit === 4500) limit = 5000; else if(limit === 3500) limit = 4500; else if(limit === 3000) limit = 4000; }
+                    if(y <= (id.includes('n') ? 13 : 10)) currentTotalTax += Math.min(Math.max(loanRemain, 0), limit * pair) * 0.007;
+                    
+                    const assetVal = Math.max(s.price * (1 - (s.depr / 100) * y), s.price * (s.minRes / 100));
+                    const gross = initCost + (res.total * 12 * Math.min(y, gTerm)) + currentTotalMaint;
+                    const net = gross - assetVal - currentTotalTax;
+                    
+                    historyGross.push(Math.round(gross)); historyNet.push(Math.round(net));
+                    if(y === exitYear) rowDataAtExit = { loan: (res.total * 12 * Math.min(y, gTerm)), init: initCost, maint: currentTotalMaint, tax: currentTotalTax, asset: assetVal, cost: net };
+                }
+            }
+
+            if(showGross) datasets.push({ label: config[id].label + '(負担)', data: historyGross, borderColor: config[id].color, borderDash: [], pointRadius: 0, tension: 0.1 });
+            if(showNet) datasets.push({ label: config[id].label + '(実質)', data: historyNet, borderColor: config[id].color, borderDash: [5, 5], pointRadius: 0, tension: 0.1 });
+            
+            tableRows += `<tr><td class="row-label" style="border-left-color:${config[id].color}">${config[id].label}</td><td>${id==='rent'?'-':Math.round(rowDataAtExit.loan).toLocaleString()}万</td><td>${Math.round(rowDataAtExit.init).toLocaleString()}万</td><td>${Math.round(rowDataAtExit.maint).toLocaleString()}万</td><td style="color:var(--color-rent)">${id==='rent'?'0':'-'+Math.round(rowDataAtExit.tax).toLocaleString()}万</td><td style="background:#fff7ed">${id==='rent'?'0':Math.round(rowDataAtExit.asset).toLocaleString()}万</td><td style="background:#f0f9ff; font-weight:bold;">${Math.round(rowDataAtExit.cost).toLocaleString()}万円</td></tr>`;
+        });
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if(mainChart) mainChart.destroy();
+        mainChart = new Chart(ctx, {
+            type: 'line', data: { labels: Array.from({length: 50}, (_, i) => i + 1 + "年"), datasets: datasets },
+            options: { scales: { y: { ticks: { callback: v => v.toLocaleString() + '万' } } }, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 20, font: { size: 10 } } } } }
+        });
+        document.getElementById('resTable').querySelector('tbody').innerHTML = tableRows;
+    }
+
+    function openModal(id) { document.getElementById('modal-' + id).style.display = 'flex'; }
+    function closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+    window.onload = () => { renderInputs(); liveCalc(); };
+</script>
+</body>
+</html>
