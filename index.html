@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v13</title>
+    <title>住まいの生涯コスト比較 Pro v13.1</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -51,7 +51,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v13</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v13.1</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -145,10 +145,10 @@
         <p><b>■ 資産価値(残価)の下限設定</b></p>
         <table class="tax-table">
             <tr><th>物件区分</th><th>残価下限率</th><th>年減価率(初期)</th></tr>
-            <tr><td>新築マンション</td><td>40%</td><td>1.8%</td></tr>
-            <tr><td>中古マンション</td><td>50%</td><td>1.2%</td></tr>
-            <tr><td>新築戸建て</td><td>30%</td><td>3.5%</td></tr>
-            <tr><td>中古戸建て</td><td>45%</td><td>2.0%</td></tr>
+            <tr><td>新築マンション</td><td>50%</td><td>1.8%</td></tr>
+            <tr><td>中古マンション</td><td>60%</td><td>1.2%</td></tr>
+            <tr><td>新築戸建て</td><td>50%</td><td>3.5%</td></tr>
+            <tr><td>中古戸建て</td><td>65%</td><td>2.0%</td></tr>
         </table>
         <button class="close-btn" onclick="closeModal()">閉じる</button>
     </div>
@@ -160,10 +160,14 @@
 
     const store = {
         rent: { price: 18, taxType: 'none', depr: 0, minRes: 0 },
-        nm: { price: 7000, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3500', depr: 1.8, minRes: 40, kotei: 15 },
-        om: { price: 6500, ref: 100, maint: 1.8, shuzen: 1.8, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 50, kotei: 12 },
-        nh: { price: 6500, shuzen_total: 400, span: 15, taxType: '3500', depr: 3.5, minRes: 30, kotei: 12 },
-        oh: { price: 6000, ref: 100, shuzen_total: 400, span: 15, taxType: '3000', depr: 2.0, minRes: 45, kotei: 10 }
+        // 新築マンション: 管理費1万、修繕費1万、残価下限50%
+        nm: { price: 7000, maint: 1.0, shuzen: 1.0, rate_inc: 3.0, taxType: '3500', depr: 1.8, minRes: 50, kotei: 15 },
+        // 中古マンション: 管理費1.5万、修繕費1.5万、残価下限60%
+        om: { price: 6500, ref: 100, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 60, kotei: 12 },
+        // 新築戸建て: 修繕費300万、残価下限50%
+        nh: { price: 6500, shuzen_total: 300, span: 15, taxType: '3500', depr: 3.5, minRes: 50, kotei: 12 },
+        // 中古戸建て: 修繕費300万、残価下限65%
+        oh: { price: 6000, ref: 100, shuzen_total: 300, span: 15, taxType: '3000', depr: 2.0, minRes: 65, kotei: 10 }
     };
 
     const config = {
@@ -301,7 +305,6 @@
                     currentTotalMaint += (yearlyMaint + (s.kotei || 0));
                     if(id.includes('m')) currentSz *= (1 + (s.rate_inc / 100));
 
-                    // 住宅ローン控除ロジック修正: 子育て世帯反映
                     let limit = parseInt(s.taxType);
                     if(child == 1) { 
                         if(limit === 4500) limit = 5000;
