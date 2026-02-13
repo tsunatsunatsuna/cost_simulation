@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v16.8</title>
+    <title>住まいの生涯コスト比較 Pro v16.9</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -37,12 +37,13 @@
         .info-btn { background: var(--secondary); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 12px; margin-left: 5px; }
         .close-btn { background: #0f172a; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; margin-top: 15px; cursor: pointer; }
         .section-title { font-size: 1.1rem; font-weight: bold; margin: 20px 0 10px; border-left: 4px solid #0f172a; padding-left: 10px; }
+        .chart-controls { display: flex; gap: 15px; margin-bottom: 10px; background: #f8fafc; padding: 10px; border-radius: 8px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.8</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.9</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -76,6 +77,11 @@
         <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
             4. 生涯コスト推移グラフ
             <button class="info-btn" onclick="UI.openModal()">i</button>
+        </div>
+        <div class="chart-controls">
+            <span>表示設定:</span>
+            <label style="display:inline-flex; align-items:center; cursor:pointer;"><input type="checkbox" id="show_gross" checked onchange="UI.runSimulation()"> <span style="margin-left:5px;">負担額累計 (実線)</span></label>
+            <label style="display:inline-flex; align-items:center; cursor:pointer;"><input type="checkbox" id="show_net" checked onchange="UI.runSimulation()"> <span style="margin-left:5px;">実質総負担額 (点線)</span></label>
         </div>
         <div style="height: 400px; margin: 15px 0;"><canvas id="mainChart"></canvas></div>
         
@@ -142,7 +148,7 @@ const INFO_CONTENT = {
     },
     sections: [
         { h: "1. 実質負担額における「ローン残債」", p: "途中で売却した場合、手に入った売却代金でローンの残りを一括返済する必要があります。このため、実質負担額には年末時点のローン残高を加算しています。" },
-        { h: "2. 資産価値の算出", p: "建物減価を反映した価格から、売却諸経費(4%)を差し引いた実質手残り額です。土地価格等を考慮し、設定した下限値を下回らないように計算されます。" }
+        { h: "2. 資産価値の算出", p: "建物減価を反映した価格から、売却諸経費(4%)を差し引いた実質手残り額。土地価格の下限値を考慮しています。" }
     ]
 };
 
@@ -173,10 +179,10 @@ let miniChartInstances = {};
  */
 const Calc = {
     getLoanMonthly(p, r, n) {
-        if(r === 0) return { total: p / (n * 12) };
+        if(r === 0) return { total: p / (n * 12), interest: 0 };
         const ir = r / 100 / 12, im = n * 12;
         const total = p * ir * Math.pow(1 + ir, im) / (Math.pow(1 + ir, im) - 1);
-        return { total };
+        return { total, interest: p * ir };
     },
     getLoanRemAtYear(p, r, n, y) {
         if (y === 0) return p; if (y >= n) return 0;
@@ -248,9 +254,29 @@ const UI = {
         grid.innerHTML = '';
         Object.keys(CONFIG).forEach(id => {
             const s = store[id];
-            const res = id === 'rent' ? {total: s.price} : Calc.getLoanMonthly(s.price, gRate, gTerm);
-            const maint = id.includes('m') ? (s.maint + s.shuzen + s.kotei/12) : (id==='rent'?0:s.shuzen_total/180 + s.kotei/12);
-            grid.innerHTML += `<div class="comp-item"><div class="comp-label"><span style="color:${CONFIG[id].color}">●</span> ${CONFIG[id].label}</div><div class="comp-value">${(res.total + maint).toFixed(1)} 万円/月</div></div>`;
+            let p=0, i=0, m=0;
+            if(id === 'rent') { p = s.price; m = s.price / 24; }
+            else {
+                const res = Calc.getLoanMonthly(s.price, gRate, gTerm);
+                p = res.total - (s.price * (gRate/100/12)); i = s.price * (gRate/100/12);
+                m = id.includes('m') ? (s.maint + s.shuzen + s.kotei/12) : (s.shuzen_total/180 + s.kotei/12);
+            }
+            grid.innerHTML += `<div class="comp-item"><div class="comp-label"><span style="color:${CONFIG[id].color}">●</span> ${CONFIG[id].label}</div><div style="height:40px;"><canvas id="mini_${id}"></canvas></div><div class="comp-value">${(p + i + m).toFixed(1)} 万円/月</div></div>`;
+            
+            // 積み上げミニグラフの描画
+            setTimeout(() => {
+                const ctx = document.getElementById(`mini_${id}`).getContext('2d');
+                if(miniChartInstances[id]) miniChartInstances[id].destroy();
+                miniChartInstances[id] = new Chart(ctx, {
+                    type: 'bar', indexAxis: 'y',
+                    data: { labels: [''], datasets: [
+                        { label: '元金', data: [p], backgroundColor: CONFIG[id].color },
+                        { label: '利息', data: [i], backgroundColor: '#fda4af' },
+                        { label: '維持', data: [m], backgroundColor: '#94a3b8' }
+                    ]},
+                    options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, display: false }, y: { stacked: true, display: false } } }
+                });
+            }, 0);
         });
     },
     runSimulation() {
@@ -258,9 +284,11 @@ const UI = {
         document.getElementById('resultArea').style.display = 'block';
         const exitYear = parseInt(document.getElementById('exit_year').value);
         const pair = parseInt(document.getElementById('is_pair').value);
-        const child = parseInt(document.getElementById('is_child').value);
+        const child = parseInt(document.getElementById('is_child').value); // 子育てフラグ取得
         const gRate = parseFloat(document.getElementById('global_rate').value);
         const gTerm = parseInt(document.getElementById('global_term').value);
+        const showGross = document.getElementById('show_gross').checked;
+        const showNet = document.getElementById('show_net').checked;
 
         let datasets = [], tableRows = '';
 
@@ -279,14 +307,15 @@ const UI = {
                     const paidLoan = (y <= gTerm) ? (res.total * 12 * y) : (res.total * 12 * gTerm);
                     const remLoan = Calc.getLoanRemAtYear(s.price, gRate, gTerm, y);
                     cMaint += (id.includes('m') ? (s.maint + (s.shuzen * Math.pow(1 + (s.rate_inc/100), Math.floor(y/5)))) * 12 : (s.shuzen_total/15)*12) + s.kotei;
+                    
+                    // 控除計算（世帯区分を反映）
                     if(y <= 13) {
-                        const limit = Calc.getTaxLimit(s.taxType, child);
+                        const limit = Calc.getTaxLimit(s.taxType, child); // ここでchildを渡す
                         cTax += Math.min(Calc.getLoanRemAtYear(s.price, gRate, gTerm, y), limit * pair) * 0.007;
                     }
                     const asset = Calc.getAssetValue(s.price, s.depr, y, s.minRes);
                     
                     const gross = init + paidLoan + cMaint;
-                    // 【修正】実質負担額 ＝ 支払累計 ＋ ローン残債 － 資産価値 － 控除累計
                     const net = gross + remLoan - asset - cTax;
 
                     historyGross.push(Math.round(gross));
@@ -308,8 +337,8 @@ const UI = {
                     </tr>`;
                 }
             }
-            datasets.push({ label: CONFIG[id].label, data: historyGross, borderColor: CONFIG[id].color, pointRadius: 0, tension: 0.1 });
-            datasets.push({ label: CONFIG[id].label + '(実)', data: historyNet, borderColor: CONFIG[id].color, borderDash: [5, 5], pointRadius: 0, tension: 0.1 });
+            if(showGross) datasets.push({ label: CONFIG[id].label, data: historyGross, borderColor: CONFIG[id].color, pointRadius: 0, tension: 0.1 });
+            if(showNet) datasets.push({ label: CONFIG[id].label + '(実)', data: historyNet, borderColor: CONFIG[id].color, borderDash: [5, 5], pointRadius: 0, tension: 0.1 });
         });
 
         if(mainChartInstance) mainChartInstance.destroy();
