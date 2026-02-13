@@ -175,20 +175,37 @@ let activeTab = 'rent';
 let mainChartInstance = null;
 let miniChartInstances = {};
 
+    
 /**
  * ==========================================
- * 2. LOGIC (計算式の資材)
- * 純粋な計算ロジックのみを記述
+ * 2. LOGIC (計算式の資材) - 修正版
  * ==========================================
  */
 const Calc = {
-    // ローン計算
+    // ローン毎月返済額（元利均等）
     getLoanMonthly(p, r, n) {
         if(r === 0) return { total: p / (n * 12), interest: 0 };
         const ir = r / 100 / 12, im = n * 12;
         const total = p * ir * Math.pow(1 + ir, im) / (Math.pow(1 + ir, im) - 1);
-        return { total, interest: p * ir };
+        return { total, firstMonthInterest: p * ir };
     },
+
+    // 指定された経過年数におけるローンの残高を計算（元利均等返済の公式）
+    // p: 元金, r: 年利, n: 全期間(年), y: 経過年数
+    getLoanRemAtYear(p, r, n, y) {
+        if (y === 0) return p;
+        if (y >= n) return 0;
+        if (r === 0) return p * (1 - y / n);
+        
+        const ir = r / 100 / 12;
+        const totalMonths = n * 12;
+        const passedMonths = y * 12;
+        
+        // 残高 = 元金 * [(1+i)^n - (1+i)^m] / [(1+i)^n - 1]
+        const rem = p * (Math.pow(1 + ir, totalMonths) - Math.pow(1 + ir, passedMonths)) / (Math.pow(1 + ir, totalMonths) - 1);
+        return Math.max(0, rem);
+    },
+
     // 控除限度額判定
     getTaxLimit(type, isChild) {
         let limit = parseInt(type);
@@ -199,6 +216,7 @@ const Calc = {
         }
         return limit;
     },
+
     // 資産価値の計算
     getAssetValue(price, depr, year, minRes) {
         return Math.max(price * (1 - (depr / 100) * year), price * (minRes / 100));
@@ -282,7 +300,7 @@ const UI = {
         });
     },
 
-    // シミュレーション実行
+// シミュレーション実行（UIオブジェクト内のメソッド）
     runSimulation() {
         this.saveCurrentValues();
         document.getElementById('resultArea').style.display = 'block';
@@ -299,30 +317,35 @@ const UI = {
         Object.keys(CONFIG).forEach(id => {
             const s = store[id];
             let historyNet = [], historyGross = [], currentMaint = 0, currentTaxC = 0;
-            let loanRem = s.price, curSz = s.shuzen || 0;
             const res = Calc.getLoanMonthly(s.price, gRate, gTerm);
             const init = id === 'rent' ? s.price * 5 : (s.price * 0.07) + (s.ref || 0);
+            let curSz = s.shuzen || 0;
             let rowAtExit = {};
 
             for(let y=1; y<=50; y++) {
                 if(id === 'rent') {
+                    // 賃貸の計算
                     currentMaint += (s.price * 12 + (y % 2 === 0 ? s.price : 0));
                     const gross = init + currentMaint;
                     historyGross.push(gross); historyNet.push(gross);
                     if(y === exitYear) rowAtExit = { lp: 0, init, maint: currentMaint, tax: 0, asset: 0, cost: gross };
                 } else {
+                    // 持家の計算
                     const totalPaidLoan = res.total * 12 * Math.min(y, gTerm);
-                    if(y <= gTerm) {
-                        for(let m=0; m<12; m++) {
-                            const mi = Math.max(0, loanRem) * (gRate / 100 / 12);
-                            loanRem -= (res.total - mi);
-                        }
-                    }
+                    
+                    // 維持費累計の計算（修繕積立金の上昇率を考慮）
                     currentMaint += (id.includes('m') ? (s.maint + curSz) * 12 : (s.shuzen_total / (s.span || 15))) + (s.kotei || 0);
                     if(id.includes('m')) curSz *= (1 + (s.rate_inc / 100));
 
+                    // 正確な「年末時点の元金残高」を取得
+                    const loanRemAtYearEnd = Calc.getLoanRemAtYear(s.price, gRate, gTerm, y);
+
+                    // 住宅ローン控除（金利を含まない元金残高のみを対象にする）
                     let limit = Calc.getTaxLimit(s.taxType, child);
-                    if(y <= (id.includes('n') ? 13 : 10)) currentTaxC += Math.min(Math.max(loanRem, 0), limit * pair) * 0.007;
+                    if(y <= (id.includes('n') ? 13 : 10)) {
+                        // 控除額 = 年末元金残高 × 0.7% (限度額あり)
+                        currentTaxC += Math.min(loanRemAtYearEnd, limit * pair) * 0.007;
+                    }
                     
                     const asset = Calc.getAssetValue(s.price, s.depr, y, s.minRes);
                     const gross = init + totalPaidLoan + currentMaint;
