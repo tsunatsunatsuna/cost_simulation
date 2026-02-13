@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v16.2</title>
+    <title>住まいの生涯コスト比較 Pro v16.3</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -46,7 +46,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.2</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.3</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -123,27 +123,6 @@
             <b>1. 負担額累計 (実線)</b> = 初期費用 + ローン支払累計(元利) + 維持費累計 + 固定資産税累計<br>
             <b>2. 実質総負担額 (点線)</b> = 負担額累計 - (想定売却価格 + 住宅ローン控除累計)
         </div>
-        <p><b>■ 住宅ローン控除 (2026年改正対応)</b></p>
-        <table class="tax-table">
-            <thead><tr><th>物件区分</th><th>通常限度額</th><th>子育て/若夫婦</th><th>期間</th></tr></thead>
-            <tbody>
-                <tr><td>長期優良住宅</td><td>4,500万円</td><td>5,000万円</td><td>13年</td></tr>
-                <tr><td>ZEH水準</td><td>3,500万円</td><td>4,500万円</td><td>13年</td></tr>
-                <tr><td>省エネ適合</td><td>3,000万円</td><td>4,000万円</td><td>13年</td></tr>
-                <tr><td>中古(省エネ以上)</td><td colspan="2">3,000万円</td><td>10年</td></tr>
-                <tr><td>中古(その他)</td><td colspan="2">2,000万円</td><td>10年</td></tr>
-            </tbody>
-        </table>
-        <p><b>■ 資産価値(売却価格)の推移設定</b></p>
-        <table class="tax-table">
-            <thead><tr><th>区分</th><th>デフォルト減価率</th><th>残価下限(底値)</th></tr></thead>
-            <tbody>
-                <tr><td>新築マンション</td><td>1.8% / 年</td><td>購入価格の 50%</td></tr>
-                <tr><td>中古マンション</td><td>1.2% / 年</td><td>購入価格の 60%</td></tr>
-                <tr><td>新築戸建て</td><td>3.5% / 年</td><td>購入価格の 50%</td></tr>
-                <tr><td>中古戸建て</td><td>2.0% / 年</td><td>購入価格の 65%</td></tr>
-            </tbody>
-        </table>
         <button class="close-btn" onclick="UI.closeModal()">閉じる</button>
     </div>
 </div>
@@ -152,7 +131,6 @@
 /**
  * ==========================================
  * 1. DATA (変数の資材)
- * 設定値や定数を管理
  * ==========================================
  */
 const CONFIG = {
@@ -175,38 +153,30 @@ let activeTab = 'rent';
 let mainChartInstance = null;
 let miniChartInstances = {};
 
-    
 /**
  * ==========================================
- * 2. LOGIC (計算式の資材) - 修正版
+ * 2. LOGIC (計算式の資材)
  * ==========================================
  */
 const Calc = {
-    // ローン毎月返済額（元利均等）
     getLoanMonthly(p, r, n) {
         if(r === 0) return { total: p / (n * 12), interest: 0 };
         const ir = r / 100 / 12, im = n * 12;
         const total = p * ir * Math.pow(1 + ir, im) / (Math.pow(1 + ir, im) - 1);
-        return { total, firstMonthInterest: p * ir };
+        return { total, interest: p * ir };
     },
 
-    // 指定された経過年数におけるローンの残高を計算（元利均等返済の公式）
-    // p: 元金, r: 年利, n: 全期間(年), y: 経過年数
+    // 指定経過年数の「年末元金残高」を計算
     getLoanRemAtYear(p, r, n, y) {
         if (y === 0) return p;
         if (y >= n) return 0;
         if (r === 0) return p * (1 - y / n);
-        
         const ir = r / 100 / 12;
-        const totalMonths = n * 12;
-        const passedMonths = y * 12;
-        
-        // 残高 = 元金 * [(1+i)^n - (1+i)^m] / [(1+i)^n - 1]
-        const rem = p * (Math.pow(1 + ir, totalMonths) - Math.pow(1 + ir, passedMonths)) / (Math.pow(1 + ir, totalMonths) - 1);
+        const tm = n * 12, pm = y * 12;
+        const rem = p * (Math.pow(1 + ir, tm) - Math.pow(1 + ir, pm)) / (Math.pow(1 + ir, tm) - 1);
         return Math.max(0, rem);
     },
 
-    // 控除限度額判定
     getTaxLimit(type, isChild) {
         let limit = parseInt(type);
         if(isChild == 1) {
@@ -217,7 +187,6 @@ const Calc = {
         return limit;
     },
 
-    // 資産価値の計算
     getAssetValue(price, depr, year, minRes) {
         return Math.max(price * (1 - (depr / 100) * year), price * (minRes / 100));
     }
@@ -226,11 +195,9 @@ const Calc = {
 /**
  * ==========================================
  * 3. UI (表示用の資材)
- * 画面操作、グラフ描画、DOM操作
  * ==========================================
  */
 const UI = {
-    // タブ切り替え
     switchTab(type, btn) {
         this.saveCurrentValues();
         activeTab = type;
@@ -240,7 +207,6 @@ const UI = {
         this.liveCalc();
     },
 
-    // 現在の入力を保存
     saveCurrentValues() {
         const pInput = document.getElementById('val_price');
         if(!pInput) return;
@@ -255,7 +221,6 @@ const UI = {
         }
     },
 
-    // 入力項目の動的生成
     renderInputs() {
         const area = document.getElementById('input-area');
         const s = store[activeTab];
@@ -273,7 +238,6 @@ const UI = {
         area.innerHTML = html;
     },
 
-    // 簡易月額計算
     liveCalc() {
         this.saveCurrentValues();
         const gRate = parseFloat(document.getElementById('global_rate').value);
@@ -287,7 +251,7 @@ const UI = {
             if(id === 'rent') { p = s.price; m = s.price / 24; }
             else {
                 const res = Calc.getLoanMonthly(s.price, gRate, gTerm);
-                p = res.total - res.interest; i = res.interest;
+                p = res.total - (s.price * (gRate/100/12)); i = s.price * (gRate/100/12);
                 m = id.includes('m') ? (s.maint + s.shuzen + (s.kotei/12)) : (s.shuzen_total / (s.span * 12) + (s.kotei/12));
             }
             grid.innerHTML += `<div class="comp-item"><div class="comp-label"><span style="color:${CONFIG[id].color}">●</span> ${CONFIG[id].label}</div><div style="height:40px;"><canvas id="mini_${id}"></canvas></div><div class="comp-value">${(p + i + m).toFixed(1)} 万円/月</div></div>`;
@@ -300,7 +264,6 @@ const UI = {
         });
     },
 
-// シミュレーション実行（UIオブジェクト内のメソッド）
     runSimulation() {
         this.saveCurrentValues();
         document.getElementById('resultArea').style.display = 'block';
@@ -324,26 +287,19 @@ const UI = {
 
             for(let y=1; y<=50; y++) {
                 if(id === 'rent') {
-                    // 賃貸の計算
                     currentMaint += (s.price * 12 + (y % 2 === 0 ? s.price : 0));
                     const gross = init + currentMaint;
                     historyGross.push(gross); historyNet.push(gross);
                     if(y === exitYear) rowAtExit = { lp: 0, init, maint: currentMaint, tax: 0, asset: 0, cost: gross };
                 } else {
-                    // 持家の計算
                     const totalPaidLoan = res.total * 12 * Math.min(y, gTerm);
-                    
-                    // 維持費累計の計算（修繕積立金の上昇率を考慮）
                     currentMaint += (id.includes('m') ? (s.maint + curSz) * 12 : (s.shuzen_total / (s.span || 15))) + (s.kotei || 0);
                     if(id.includes('m')) curSz *= (1 + (s.rate_inc / 100));
 
-                    // 正確な「年末時点の元金残高」を取得
+                    // 住宅ローン控除：年末時点の「元金残高」をベースに計算
                     const loanRemAtYearEnd = Calc.getLoanRemAtYear(s.price, gRate, gTerm, y);
-
-                    // 住宅ローン控除（金利を含まない元金残高のみを対象にする）
                     let limit = Calc.getTaxLimit(s.taxType, child);
                     if(y <= (id.includes('n') ? 13 : 10)) {
-                        // 控除額 = 年末元金残高 × 0.7% (限度額あり)
                         currentTaxC += Math.min(loanRemAtYearEnd, limit * pair) * 0.007;
                     }
                     
@@ -370,20 +326,11 @@ const UI = {
         document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
     },
 
-    // モーダル制御
     openModal(id) { document.getElementById('modal-' + id).style.display = 'flex'; },
     closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 };
 
-/**
- * ==========================================
- * 4. INITIALIZE (初期化)
- * ==========================================
- */
-window.onload = () => { 
-    UI.renderInputs(); 
-    UI.liveCalc(); 
-};
+window.onload = () => { UI.renderInputs(); UI.liveCalc(); };
 </script>
 </body>
 </html>
