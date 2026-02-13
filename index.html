@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v15.1</title>
+    <title>住まいの生涯コスト比較 Pro v16</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -14,7 +14,7 @@
         .container { max-width: 1200px; margin: 0 auto; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
         label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #475569; }
         input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
         
@@ -38,7 +38,7 @@
         .res-table .row-label { text-align: left; font-weight: bold; font-size: 0.8rem; padding-left: 10px; border-left: 6px solid transparent; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 800px; max-height: 85vh; overflow-y: auto; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 850px; max-height: 85vh; overflow-y: auto; }
         .info-btn { background: var(--secondary); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 12px; margin-left: 5px; }
         .close-btn { background: #0f172a; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; margin-top: 15px; cursor: pointer; }
         
@@ -52,7 +52,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v15.1</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -123,14 +123,45 @@
 
 <div id="modal-logic" class="modal">
     <div class="modal-content">
-        <h3>📊 シミュレーションの計算式</h3>
-        <p><b>■ 基本計算モデル</b></p>
+        <h3>📊 算出定義とシミュレーション条件</h3>
+        
+        <p><b>■ 基本計算式</b></p>
         <div style="background:#f1f5f9; padding:15px; border-radius:8px; font-size:0.8rem; line-height:1.6;">
             <b>1. 負担額累計 (実線)</b> = 初期費用 + ローン支払累計(元利) + 維持費累計 + 固定資産税累計<br>
             <b>2. 実質総負担額 (点線)</b> = 負担額累計 - (想定売却価格 + 住宅ローン控除累計)<br><br>
-            ・<b>想定売却価格</b>: 購入価格から年減価率で差し引き、各区分の「残価下限」で止まるように算出しています。<br>
-            ・<b>維持費</b>: マンションは修繕積立金の上昇を、戸建ては将来の修繕費を年数で割って加算しています。
+            ※実質総負担額は、「その時点で物件を売却したと仮定した場合、トータルでいくら失ったか」を示す損益分岐指標です。
         </div>
+
+        <p><b>■ 住宅ローン控除 (2026年改正対応)</b></p>
+        <table class="tax-table">
+            <thead><tr><th>物件区分</th><th>通常限度額</th><th>子育て/若夫婦</th><th>期間</th></tr></thead>
+            <tbody>
+                <tr><td>長期優良住宅</td><td>4,500万円</td><td>5,000万円</td><td>13年</td></tr>
+                <tr><td>ZEH水準</td><td>3,500万円</td><td>4,500万円</td><td>13年</td></tr>
+                <tr><td>省エネ適合</td><td>3,000万円</td><td>4,000万円</td><td>13年</td></tr>
+                <tr><td>中古(省エネ以上)</td><td colspan="2">3,000万円</td><td>10年</td></tr>
+                <tr><td>中古(その他)</td><td colspan="2">2,000万円</td><td>10年</td></tr>
+            </tbody>
+        </table>
+
+        <p><b>■ 資産価値(売却価格)の推移設定</b></p>
+        <table class="tax-table">
+            <thead><tr><th>区分</th><th>デフォルト減価率</th><th>残価下限(底値)</th></tr></thead>
+            <tbody>
+                <tr><td>新築マンション</td><td>1.8% / 年</td><td>購入価格の 50%</td></tr>
+                <tr><td>中古マンション</td><td>1.2% / 年</td><td>購入価格の 60%</td></tr>
+                <tr><td>新築戸建て</td><td>3.5% / 年</td><td>購入価格の 50%</td></tr>
+                <tr><td>中古戸建て</td><td>2.0% / 年</td><td>購入価格の 65%</td></tr>
+            </tbody>
+        </table>
+
+        <p><b>■ 維持費の計算詳細</b></p>
+        <div style="font-size: 0.8rem; line-height: 1.5;">
+            * <b>マンション</b>: 管理費 + 修繕積立金。積立金は「修繕上昇率」に基づき毎年複利で増加すると仮定。<br>
+            * <b>戸建て</b>: 「修繕総額」を「修繕スパン」で割った額を月額費用として仮想的に積立計算。<br>
+            * <b>賃貸</b>: 家賃に加えて、2年ごとの更新料(家賃1ヶ月分)を自動加算。
+        </div>
+
         <button class="close-btn" onclick="closeModal()">閉じる</button>
     </div>
 </div>
@@ -172,8 +203,8 @@
         s.price = parseFloat(pInput.value || 0);
         if(activeTab !== 'rent') {
             ['ref','maint','shuzen','rate_inc','shuzen_total','span','depr','minres','kotei'].forEach(key => {
-                const el = document.getElementById('val_' + (key === 'minres' ? 'minres' : key));
-                if(el) s[key] = parseFloat(el.value || 0);
+                const el = document.getElementById('val_' + key);
+                if(el) s[key === 'minres' ? 'minRes' : key] = parseFloat(el.value || 0);
             });
             s.taxType = document.getElementById('val_tax_type').value;
         }
@@ -186,11 +217,11 @@
         if(activeTab !== 'rent') {
             if(activeTab.includes('o')) html += `<div class="field"><label>リフォーム (万)</label><input type="number" id="val_ref" value="${s.ref}" oninput="liveCalc()"></div>`;
             if(activeTab.includes('m')) {
-                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="liveCalc()"></div>`;
+                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="liveCalc()"></div><div class="field"><label>上昇率 (%)</label><input type="number" id="val_rate_inc" value="${s.rate_inc}" step="0.1" oninput="liveCalc()"></div>`;
             } else {
                 html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="liveCalc()"></div><div class="field"><label>スパン (年)</label><input type="number" id="val_span" value="${s.span}" oninput="liveCalc()"></div>`;
             }
-            html += `<div class="field"><label>固税 (年/万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="liveCalc()"></div><div class="field"><label>下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" oninput="liveCalc()"></div>`;
+            html += `<div class="field"><label>固税 (年/万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="liveCalc()"></div><div class="field"><label>減価率 (%)</label><input type="number" id="val_depr" value="${s.depr}" step="0.1" oninput="liveCalc()"></div><div class="field"><label>下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" oninput="liveCalc()"></div>`;
             html += `<div class="field"><label>控除区分</label><select id="val_tax_type" onchange="liveCalc()"><option value="4500" ${s.taxType==='4500'?'selected':''}>長期優良</option><option value="3500" ${s.taxType==='3500'?'selected':''}>ZEH</option><option value="3000" ${s.taxType==='3000'?'selected':''}>省エネ</option><option value="2000" ${s.taxType==='2000'?'selected':''}>一般中古</option></select></div>`;
         }
         area.innerHTML = html;
@@ -256,15 +287,13 @@
                     historyGross.push(gross); historyNet.push(gross);
                     if(y === exitYear) rowAtExit = { lp: 0, init, maint: currentMaint, tax: 0, asset: 0, cost: gross };
                 } else {
-                    // ローン支払額累計の計算
-                    const loanPaidThisYear = (y <= gTerm) ? res.total * 12 : 0;
+                    const totalPaidLoan = res.total * 12 * Math.min(y, gTerm);
                     if(y <= gTerm) {
                         for(let m=0; m<12; m++) {
                             const mi = Math.max(0, loanRem) * (gRate / 100 / 12);
                             loanRem -= (res.total - mi);
                         }
                     }
-                    
                     currentMaint += (id.includes('m') ? (s.maint + curSz) * 12 : (s.shuzen_total / (s.span || 15))) + (s.kotei || 0);
                     if(id.includes('m')) curSz *= (1 + (s.rate_inc / 100));
 
@@ -273,14 +302,11 @@
                     if(y <= (id.includes('n') ? 13 : 10)) currentTaxC += Math.min(Math.max(loanRem, 0), limit * pair) * 0.007;
                     
                     const asset = Math.max(s.price * (1 - (s.depr / 100) * y), s.price * (s.minRes / 100));
-                    
-                    const totalPaidLoan = res.total * 12 * Math.min(y, gTerm);
                     const gross = init + totalPaidLoan + currentMaint;
-                    const net = gross - asset - currentTaxC; // 支出累計 - (今の価値 + 戻ってきた税金)
+                    const net = gross - asset - currentTaxC;
 
                     historyGross.push(Math.round(gross)); 
                     historyNet.push(Math.round(net));
-                    
                     if(y === exitYear) rowAtExit = { lp: totalPaidLoan, init, maint: currentMaint, tax: currentTaxC, asset, cost: net };
                 }
             }
@@ -295,6 +321,7 @@
         if(mainChart) mainChart.destroy();
         mainChart = new Chart(ctx, { type: 'line', data: { labels: Array.from({length: 50}, (_, i) => i + 1 + "年"), datasets: datasets }, options: { scales: { y: { ticks: { callback: v => v.toLocaleString() + '万' } } }, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 15, font: { size: 10 } } } } } });
         document.getElementById('resTable').querySelector('tbody').innerHTML = tableRows;
+        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
     }
 
     function openModal(id) { document.getElementById('modal-' + id).style.display = 'flex'; }
