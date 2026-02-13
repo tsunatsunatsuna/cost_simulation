@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v13.1</title>
+    <title>住まいの生涯コスト比較 Pro v14</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -27,8 +27,8 @@
         .tab-btn[data-type="nh"].active { background: var(--color-nh); }
         .tab-btn[data-type="oh"].active { background: var(--color-oh); }
 
-        .monthly-box { margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0; text-align: center; }
-        .monthly-total { font-size: 1.7rem; font-weight: bold; color: #0f172a; }
+        .monthly-box { margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 12px; border: 2px solid #e2e8f0; }
+        .monthly-total { font-size: 1.7rem; font-weight: bold; color: #0f172a; text-align: center; }
         
         .res-table { width: 100%; border-collapse: collapse; font-size: 0.65rem; min-width: 950px; margin-top: 15px;}
         .res-table th, .res-table td { border-bottom: 1px solid #e2e8f0; padding: 10px 6px; text-align: right; }
@@ -40,18 +40,16 @@
         .info-btn { background: var(--secondary); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 12px; margin-left: 5px; }
         .close-btn { background: #0f172a; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; margin-top: 15px; cursor: pointer; }
         
+        .section-title { font-size: 1.1rem; font-weight: bold; margin: 20px 0 10px; border-left: 4px solid #0f172a; padding-left: 10px; }
+        .chart-controls { display: flex; gap: 15px; margin-bottom: 10px; background: #f8fafc; padding: 10px; border-radius: 8px; font-size: 0.85rem; }
         .tax-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 10px 0; }
         .tax-table th, .tax-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: center; }
-        .tax-table th { background: #f1f5f9; }
-        
-        .section-title { font-size: 1.1rem; font-weight: bold; margin: 20px 0 10px; border-left: 4px solid #0f172a; padding-left: 10px; }
-        .exit-select { background: #fff7ed; border: 2px solid #fb923c; font-weight: bold; color: #9a3412; padding: 8px; border-radius: 8px; cursor: pointer;}
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v13.1</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v14</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -73,10 +71,12 @@
             <button class="tab-btn" data-type="oh" onclick="switchTab('oh', this)">中古戸建</button>
         </div>
         <div id="input-area" class="grid"></div>
+        
         <div class="monthly-box">
+            <div style="font-size:0.8rem; color:var(--secondary); margin-bottom:5px;">月額コスト内訳 (横積み上げ)</div>
+            <div style="height: 60px; margin-bottom: 10px;"><canvas id="miniChart"></canvas></div>
             <div class="monthly-total" id="live_monthly">-- 万円</div>
-            <div style="height: 45px; margin: 10px 0;"><canvas id="miniChart"></canvas></div>
-            <div style="font-size:0.9rem; font-weight:bold; color:#ef4444;" id="initial_display">初期費用目安: -- 万円</div>
+            <div style="text-align:center; font-size:0.9rem; font-weight:bold; color:#ef4444; margin-top:5px;" id="initial_display">初期費用目安: -- 万円</div>
         </div>
         <button style="width:100%; padding:18px; background:#0f172a; color:white; border:none; border-radius:8px; cursor:pointer; font-size:1.1rem; font-weight:bold; margin-top:15px;" onclick="runSimulation()">全プランを比較計算する</button>
     </div>
@@ -86,7 +86,18 @@
             3. 生涯コスト推移グラフ
             <button class="info-btn" onclick="openModal('logic')">i</button>
         </div>
-        <div style="height: 380px; margin: 15px 0;"><canvas id="mainChart"></canvas></div>
+        
+        <div class="chart-controls">
+            <span>表示設定:</span>
+            <label style="display:inline-flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="show_gross" checked onchange="runSimulation()"> <span style="margin-left:5px;">負担額累計 (実線)</span>
+            </label>
+            <label style="display:inline-flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="show_net" checked onchange="runSimulation()"> <span style="margin-left:5px;">実質総負担額 (点線)</span>
+            </label>
+        </div>
+
+        <div style="height: 400px; margin: 15px 0;"><canvas id="mainChart"></canvas></div>
         
         <div class="section-title">4. 比較表の算出タイミング</div>
         <div style="background:#fff7ed; padding:15px; border-radius:8px; border:1px solid #fb923c; margin-bottom:15px; display:flex; align-items:center; gap:15px;">
@@ -95,7 +106,7 @@
                 <option value="5">5年目</option><option value="10">10年目</option><option value="15">15年目</option><option value="20">20年目</option>
                 <option value="25">25年目</option><option value="30">30年目</option><option value="35" selected>35年目</option><option value="40">40年目</option><option value="50">50年目</option>
             </select>
-            <span style="font-weight:bold; color:#9a3412;">時点での実質負担累計</span>
+            <span style="font-weight:bold; color:#9a3412;">時点での内訳詳細</span>
         </div>
 
         <div style="overflow-x:auto;">
@@ -104,10 +115,10 @@
                     <tr>
                         <th style="text-align:left">比較プラン</th>
                         <th>ローン支払額<br>(元利合計)</th>
-                        <th>諸経費/リフォーム<br>(初期費用)</th>
-                        <th>維持費累計<br>(更新/修繕/固定資産)</th>
+                        <th>初期費用<br>(諸経費/リフォ)</th>
+                        <th>維持費累計<br>(修繕/管理/固税)</th>
                         <th>控除累計<br>(税還付)</th>
-                        <th style="background:#fff7ed">想定売却価格<br>(残価下限考慮)</th>
+                        <th style="background:#fff7ed">想定売却価格<br>(残価下限)</th>
                         <th style="background:#f0f9ff; color:#0f172a; font-size:0.75rem;">実質総負担額</th>
                     </tr>
                 </thead>
@@ -119,37 +130,12 @@
 
 <div id="modal-logic" class="modal">
     <div class="modal-content">
-        <h3>📊 各区分の計算式と住宅ローン控除</h3>
-        <p><b>■ 区分別の計算ロジック</b></p>
+        <h3>📊 計算ロジックと控除区分表</h3>
+        <p><b>■ グラフの線の違い</b></p>
         <div style="background:#f1f5f9; padding:12px; border-radius:8px; font-size:0.8rem; line-height:1.6;">
-            <b>【全持ち家共通】</b><br>
-            実質コスト = (初期費用 + 利息累計 + 維持費累計 + 固定資産税累計 + 資産減) - 控除累計<br>
-            ※資産減 = 購入価格 − 売却価格 (下限考慮)<br><br>
-            <b>【マンション/戸建て】</b><br>
-            ・維持費には「管理費/修繕費」に加え、入力された「固定資産税」の年数分が含まれます。<br><br>
-            <b>【賃貸】</b><br>
-            ・実質コスト = (家賃累計 + 更新料累計 + 初期費用)<br>
-            ・更新料 = 2年ごとに家賃1ヶ月分と仮定。固定資産税は0円。
+            <b>実線（負担額累計）</b>: 初期費用＋ローン返済＋維持費の「合計支出」。<br>
+            <b>点線（実質総負担額）</b>: 支出から「売却価格」と「ローン控除」を引いた「真のコスト」。
         </div>
-        <p><b>■ 住宅ローン控除 区分表 (2026年)</b></p>
-        <table class="tax-table">
-            <thead><tr><th>区分</th><th>限度額(通常)</th><th>限度額(子育て)</th><th>控除率</th><th>期間</th></tr></thead>
-            <tbody>
-                <tr><td>新築（長期優良）</td><td>4,500万</td><td>5,000万</td><td>0.7%</td><td>13年</td></tr>
-                <tr><td>新築（ZEH）</td><td>3,500万</td><td>4,500万</td><td>0.7%</td><td>13年</td></tr>
-                <tr><td>新築（省エネ）</td><td>3,000万</td><td>4,000万</td><td>0.7%</td><td>13年</td></tr>
-                <tr><td>中古（長期・省エネ）</td><td colspan="2">3,000万</td><td>0.7%</td><td>10年</td></tr>
-                <tr><td>中古（その他）</td><td colspan="2">2,000万</td><td>0.7%</td><td>10年</td></tr>
-            </tbody>
-        </table>
-        <p><b>■ 資産価値(残価)の下限設定</b></p>
-        <table class="tax-table">
-            <tr><th>物件区分</th><th>残価下限率</th><th>年減価率(初期)</th></tr>
-            <tr><td>新築マンション</td><td>50%</td><td>1.8%</td></tr>
-            <tr><td>中古マンション</td><td>60%</td><td>1.2%</td></tr>
-            <tr><td>新築戸建て</td><td>50%</td><td>3.5%</td></tr>
-            <tr><td>中古戸建て</td><td>65%</td><td>2.0%</td></tr>
-        </table>
         <button class="close-btn" onclick="closeModal()">閉じる</button>
     </div>
 </div>
@@ -160,13 +146,9 @@
 
     const store = {
         rent: { price: 18, taxType: 'none', depr: 0, minRes: 0 },
-        // 新築マンション: 管理費1万、修繕費1万、残価下限50%
         nm: { price: 7000, maint: 1.0, shuzen: 1.0, rate_inc: 3.0, taxType: '3500', depr: 1.8, minRes: 50, kotei: 15 },
-        // 中古マンション: 管理費1.5万、修繕費1.5万、残価下限60%
         om: { price: 6500, ref: 100, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 60, kotei: 12 },
-        // 新築戸建て: 修繕費300万、残価下限50%
         nh: { price: 6500, shuzen_total: 300, span: 15, taxType: '3500', depr: 3.5, minRes: 50, kotei: 12 },
-        // 中古戸建て: 修繕費300万、残価下限65%
         oh: { price: 6000, ref: 100, shuzen_total: 300, span: 15, taxType: '3000', depr: 2.0, minRes: 65, kotei: 10 }
     };
 
@@ -178,188 +160,4 @@
         oh: { label: '中古戸建て', color: '#8b5cf6' }
     };
 
-    function switchTab(type, btn) {
-        saveCurrentValues();
-        activeTab = type;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderInputs();
-        liveCalc();
-    }
-
-    function saveCurrentValues() {
-        const pInput = document.getElementById('val_price');
-        if(!pInput) return;
-        const s = store[activeTab];
-        s.price = parseFloat(pInput.value || 0);
-        if(activeTab !== 'rent') {
-            if(document.getElementById('val_ref')) s.ref = parseFloat(document.getElementById('val_ref').value || 0);
-            if(document.getElementById('val_maint')) s.maint = parseFloat(document.getElementById('val_maint').value || 0);
-            if(document.getElementById('val_shuzen')) s.shuzen = parseFloat(document.getElementById('val_shuzen').value || 0);
-            if(document.getElementById('val_rate_inc')) s.rate_inc = parseFloat(document.getElementById('val_rate_inc').value || 0);
-            if(document.getElementById('val_shuzen_total')) s.shuzen_total = parseFloat(document.getElementById('val_shuzen_total').value || 0);
-            if(document.getElementById('val_span')) s.span = parseFloat(document.getElementById('val_span').value || 15);
-            if(document.getElementById('val_depr')) s.depr = parseFloat(document.getElementById('val_depr').value || 0);
-            if(document.getElementById('val_minres')) s.minRes = parseFloat(document.getElementById('val_minres').value || 0);
-            if(document.getElementById('val_kotei')) s.kotei = parseFloat(document.getElementById('val_kotei').value || 0);
-            if(document.getElementById('val_tax_type')) s.taxType = document.getElementById('val_tax_type').value;
-        }
-    }
-
-    function renderInputs() {
-        const area = document.getElementById('input-area');
-        const s = store[activeTab];
-        let html = `<div class="field"><label>${activeTab==='rent'?'家賃 (万)':'物件価格 (万)'}</label><input type="number" id="val_price" value="${s.price}" oninput="liveCalc()"></div>`;
-        if(activeTab !== 'rent') {
-            if(activeTab.includes('o')) html += `<div class="field"><label>リフォーム費 (万)</label><input type="number" id="val_ref" value="${s.ref}" oninput="liveCalc()"></div>`;
-            if(activeTab.includes('m')) {
-                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="liveCalc()"></div>`;
-                html += `<div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="liveCalc()"></div>`;
-                html += `<div class="field"><label>修繕上昇率 (%)</label><input type="number" id="val_rate_inc" value="${s.rate_inc}" step="0.1" oninput="liveCalc()"></div>`;
-            } else {
-                html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="liveCalc()"></div>`;
-                html += `<div class="field"><label>修繕スパン (年)</label><input type="number" id="val_span" value="${s.span}" oninput="liveCalc()"></div>`;
-            }
-            html += `<div class="field"><label>固定資産税 (年/万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="liveCalc()"></div>`;
-            html += `<div class="field"><label>減価率 (年%)</label><input type="number" id="val_depr" value="${s.depr}" step="0.1" oninput="liveCalc()"></div>`;
-            html += `<div class="field"><label>残価下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" step="1" oninput="liveCalc()"></div>`;
-            html += `<div class="field"><label>控除区分</label><select id="val_tax_type" onchange="liveCalc()"><option value="4500" ${s.taxType==='4500'?'selected':''}>長期優良</option><option value="3500" ${s.taxType==='3500'?'selected':''}>ZEH</option><option value="3000" ${s.taxType==='3000'?'selected':''}>省エネ</option><option value="2000" ${s.taxType==='2000'?'selected':''}>一般中古</option></select></div>`;
-        }
-        area.innerHTML = html;
-    }
-
-    function getLoanMonthly(p, r, n) {
-        if(r === 0) return { total: p / (n * 12), interest: 0 };
-        const ir = r / 100 / 12, im = n * 12;
-        const total = p * ir * Math.pow(1 + ir, im) / (Math.pow(1 + ir, im) - 1);
-        return { total, interestInitial: p * ir };
-    }
-
-    function liveCalc() {
-        saveCurrentValues();
-        const s = store[activeTab];
-        const gRate = parseFloat(document.getElementById('global_rate').value);
-        const gTerm = parseFloat(document.getElementById('global_term').value);
-        let p = 0, i = 0, m = 0, init = 0;
-        if(activeTab === 'rent') { p = s.price; m = s.price / 24; init = s.price * 5; } 
-        else {
-            const res = getLoanMonthly(s.price, gRate, gTerm);
-            i = res.interestInitial; p = res.total - i; init = (s.price * 0.07) + (s.ref || 0);
-            m = activeTab.includes('m') ? (s.maint + s.shuzen + (s.kotei/12)) : (s.shuzen_total / (s.span * 12) + (s.kotei/12));
-        }
-        document.getElementById('live_monthly').innerText = (p + i + m).toFixed(1) + " 万円";
-        document.getElementById('initial_display').innerText = `初期費用目安: ${Math.round(init).toLocaleString()} 万円`;
-        updateMiniChart(p, i, m);
-    }
-
-    function updateMiniChart(p, i, m) {
-        const ctx = document.getElementById('miniChart').getContext('2d');
-        if(miniChart) miniChart.destroy();
-        miniChart = new Chart(ctx, {
-            type: 'bar', indexAxis: 'y',
-            data: { labels: [''], datasets: [
-                { label: '元金', data: [p], backgroundColor: config[activeTab].color },
-                { label: '利息', data: [i], backgroundColor: '#fda4af' },
-                { label: '維持', data: [m], backgroundColor: '#94a3b8' }
-            ]},
-            options: { plugins: { legend: { display: false } }, scales: { x: { stacked: true, display: false }, y: { stacked: true, display: false } }, maintainAspectRatio: false }
-        });
-    }
-
-    function runSimulation() {
-        saveCurrentValues();
-        document.getElementById('resultArea').style.display = 'block';
-        const exitYear = parseInt(document.getElementById('exit_year').value);
-        const pair = parseInt(document.getElementById('is_pair').value);
-        const child = parseInt(document.getElementById('is_child').value);
-        const gRate = parseFloat(document.getElementById('global_rate').value);
-        const gTerm = parseInt(document.getElementById('global_term').value);
-
-        let datasets = [], tableRows = '';
-
-        Object.keys(config).forEach(id => {
-            const s = store[id];
-            let historyNet = [], currentTotalInt = 0, currentTotalMaint = 0, currentTotalTax = 0;
-            let loanRemain = s.price, currentSz = s.shuzen || 0;
-            const res = getLoanMonthly(s.price, gRate, gTerm);
-            const initCost = id === 'rent' ? s.price * 5 : (s.price * 0.07) + (s.ref || 0);
-
-            let rowDataAtExit = {};
-
-            for(let y=1; y<=50; y++) {
-                if(id === 'rent') {
-                    const yearlyRent = s.price * 12;
-                    const updateFee = (y % 2 === 0 ? s.price : 0);
-                    currentTotalMaint += (yearlyRent + updateFee);
-                    const totalCost = initCost + currentTotalMaint;
-                    historyNet.push(totalCost);
-                    if(y === exitYear) rowDataAtExit = { loan: 0, init: initCost, maint: currentTotalMaint, tax: 0, asset: 0, cost: totalCost };
-                } else {
-                    if(y <= gTerm) {
-                        for(let m=0; m<12; m++) {
-                            const mInt = Math.max(0, loanRemain) * (gRate / 100 / 12);
-                            currentTotalInt += mInt; loanRemain -= (res.total - mInt);
-                        }
-                    }
-                    const yearlyMaint = id.includes('m') ? (s.maint + currentSz) * 12 : (s.shuzen_total / (s.span || 15));
-                    currentTotalMaint += (yearlyMaint + (s.kotei || 0));
-                    if(id.includes('m')) currentSz *= (1 + (s.rate_inc / 100));
-
-                    let limit = parseInt(s.taxType);
-                    if(child == 1) { 
-                        if(limit === 4500) limit = 5000;
-                        else if(limit === 3500) limit = 4500;
-                        else if(limit === 3000) limit = 4000;
-                    }
-                    
-                    if(y <= (id.includes('n') ? 13 : 10)) {
-                        currentTotalTax += Math.min(Math.max(loanRemain, 0), limit * pair) * 0.007;
-                    }
-                    
-                    const rawVal = s.price * (1 - (s.depr / 100) * y);
-                    const minVal = s.price * (s.minRes / 100);
-                    const currentAssetVal = Math.max(rawVal, minVal);
-                    
-                    const totalCost = initCost + currentTotalInt + currentTotalMaint + (s.price - currentAssetVal) - currentTotalTax;
-                    historyNet.push(Math.round(totalCost));
-
-                    if(y === exitYear) rowDataAtExit = { 
-                        loan: (res.total * 12 * Math.min(y, gTerm)), 
-                        init: initCost, 
-                        maint: currentTotalMaint, 
-                        tax: currentTotalTax, 
-                        asset: currentAssetVal, 
-                        cost: totalCost 
-                    };
-                }
-            }
-
-            datasets.push({ label: config[id].label, data: historyNet, borderColor: config[id].color, pointRadius: 0, tension: 0.1 });
-            
-            tableRows += `<tr>
-                <td class="row-label" style="border-left-color: ${config[id].color}">${config[id].label}</td>
-                <td>${id==='rent'?'-':Math.round(rowDataAtExit.loan).toLocaleString()+'万'}</td>
-                <td>${Math.round(rowDataAtExit.init).toLocaleString()}万</td>
-                <td>${Math.round(rowDataAtExit.maint).toLocaleString()}万</td>
-                <td style="color:var(--color-rent)">${id==='rent'?'0':'-'+Math.round(rowDataAtExit.tax).toLocaleString()+'万'}</td>
-                <td style="background:#fff7ed; font-weight:bold">${id==='rent'?'0':Math.round(rowDataAtExit.asset).toLocaleString()+'万'}</td>
-                <td style="background:#f0f9ff; font-weight:bold; font-size:0.85rem;">${Math.round(rowDataAtExit.cost).toLocaleString()}万円</td>
-            </tr>`;
-        });
-
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        if(mainChart) mainChart.destroy();
-        mainChart = new Chart(ctx, {
-            type: 'line', data: { labels: Array.from({length: 50}, (_, i) => i + 1 + "年"), datasets: datasets },
-            options: { scales: { y: { ticks: { callback: v => v.toLocaleString() + '万' } } }, maintainAspectRatio: false }
-        });
-        document.getElementById('resTable').querySelector('tbody').innerHTML = tableRows;
-        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function openModal(id) { document.getElementById('modal-' + id).style.display = 'flex'; }
-    function closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
-    window.onload = () => { renderInputs(); liveCalc(); };
-</script>
-</body>
-</html>
+    function switch
