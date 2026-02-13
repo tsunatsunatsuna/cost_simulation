@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v16.9</title>
+    <title>住まいの生涯コスト比較 Pro v16.10</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -43,7 +43,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.9</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.10</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -162,8 +162,8 @@ const CONFIG = {
 
 let store = {
     rent: { price: 18, taxType: 'none', depr: 0, minRes: 0 },
-    nm: { price: 7000, maint: 1.0, shuzen: 1.0, rate_inc: 3.0, taxType: '4500', depr: 1.8, minRes: 50, kotei: 15 },
-    om: { price: 6500, ref: 100, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 60, kotei: 12 },
+    nm: { price: 7000, maint: 1.0, maint_inc: 3.0, shuzen: 1.0, rate_inc: 3.0, taxType: '4500', depr: 1.8, minRes: 50, kotei: 15 },
+    om: { price: 6500, ref: 100, maint: 1.5, maint_inc: 3.0, shuzen: 1.5, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 60, kotei: 12 },
     nh: { price: 6500, shuzen_total: 300, span: 15, taxType: '4500', depr: 3.5, minRes: 50, kotei: 12 },
     oh: { price: 6000, ref: 100, shuzen_total: 300, span: 15, taxType: '3000', depr: 2.0, minRes: 65, kotei: 10 }
 };
@@ -223,7 +223,7 @@ const UI = {
         const s = store[activeTab];
         s.price = parseFloat(pInput.value || 0);
         if(activeTab !== 'rent') {
-            ['ref','maint','shuzen','rate_inc','shuzen_total','span','depr','minres','kotei'].forEach(key => {
+            ['ref','maint','maint_inc','shuzen','rate_inc','shuzen_total','span','depr','minres','kotei'].forEach(key => {
                 const el = document.getElementById('val_' + key);
                 if(el) s[key === 'minres' ? 'minRes' : key] = parseFloat(el.value || 0);
             });
@@ -237,7 +237,7 @@ const UI = {
         if(activeTab !== 'rent') {
             if(activeTab.includes('o')) html += `<div class="field"><label>リフォーム (万)</label><input type="number" id="val_ref" value="${s.ref}" oninput="UI.liveCalc()"></div>`;
             if(activeTab.includes('m')) {
-                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="UI.liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="UI.liveCalc()"></div>`;
+                html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="UI.liveCalc()"></div><div class="field"><label>管理費上昇 (%)</label><input type="number" id="val_maint_inc" value="${s.maint_inc}" step="0.1" oninput="UI.liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="UI.liveCalc()"></div>`;
             } else {
                 html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="UI.liveCalc()"></div>`;
             }
@@ -263,7 +263,6 @@ const UI = {
             }
             grid.innerHTML += `<div class="comp-item"><div class="comp-label"><span style="color:${CONFIG[id].color}">●</span> ${CONFIG[id].label}</div><div style="height:40px;"><canvas id="mini_${id}"></canvas></div><div class="comp-value">${(p + i + m).toFixed(1)} 万円/月</div></div>`;
             
-            // 積み上げミニグラフの描画
             setTimeout(() => {
                 const ctx = document.getElementById(`mini_${id}`).getContext('2d');
                 if(miniChartInstances[id]) miniChartInstances[id].destroy();
@@ -284,7 +283,7 @@ const UI = {
         document.getElementById('resultArea').style.display = 'block';
         const exitYear = parseInt(document.getElementById('exit_year').value);
         const pair = parseInt(document.getElementById('is_pair').value);
-        const child = parseInt(document.getElementById('is_child').value); // 子育てフラグ取得
+        const child = parseInt(document.getElementById('is_child').value);
         const gRate = parseFloat(document.getElementById('global_rate').value);
         const gTerm = parseInt(document.getElementById('global_term').value);
         const showGross = document.getElementById('show_gross').checked;
@@ -306,15 +305,21 @@ const UI = {
                 } else {
                     const paidLoan = (y <= gTerm) ? (res.total * 12 * y) : (res.total * 12 * gTerm);
                     const remLoan = Calc.getLoanRemAtYear(s.price, gRate, gTerm, y);
-                    cMaint += (id.includes('m') ? (s.maint + (s.shuzen * Math.pow(1 + (s.rate_inc/100), Math.floor(y/5)))) * 12 : (s.shuzen_total/15)*12) + s.kotei;
                     
-                    // 控除計算（世帯区分を反映）
+                    // 維持費計算（管理費の毎年上昇を反映）
+                    if(id.includes('m')) {
+                        const currentMaint = s.maint * Math.pow(1 + (s.maint_inc/100), y - 1);
+                        const currentShuzen = s.shuzen * Math.pow(1 + (s.rate_inc/100), Math.floor(y/5));
+                        cMaint += (currentMaint + currentShuzen) * 12 + s.kotei;
+                    } else {
+                        cMaint += (s.shuzen_total/15)*12 + s.kotei;
+                    }
+                    
                     if(y <= 13) {
-                        const limit = Calc.getTaxLimit(s.taxType, child); // ここでchildを渡す
+                        const limit = Calc.getTaxLimit(s.taxType, child);
                         cTax += Math.min(Calc.getLoanRemAtYear(s.price, gRate, gTerm, y), limit * pair) * 0.007;
                     }
                     const asset = Calc.getAssetValue(s.price, s.depr, y, s.minRes);
-                    
                     const gross = init + paidLoan + cMaint;
                     const net = gross + remLoan - asset - cTax;
 
