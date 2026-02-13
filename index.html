@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v12</title>
+    <title>住まいの生涯コスト比較 Pro v13</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -51,7 +51,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v12</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v13</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -105,7 +105,7 @@
                         <th style="text-align:left">比較プラン</th>
                         <th>ローン支払額<br>(元利合計)</th>
                         <th>諸経費/リフォーム<br>(初期費用)</th>
-                        <th>維持費累計<br>(更新料/修繕費)</th>
+                        <th>維持費累計<br>(更新/修繕/固定資産)</th>
                         <th>控除累計<br>(税還付)</th>
                         <th style="background:#fff7ed">想定売却価格<br>(残価下限考慮)</th>
                         <th style="background:#f0f9ff; color:#0f172a; font-size:0.75rem;">実質総負担額</th>
@@ -120,25 +120,17 @@
 <div id="modal-logic" class="modal">
     <div class="modal-content">
         <h3>📊 各区分の計算式と住宅ローン控除</h3>
-        
         <p><b>■ 区分別の計算ロジック</b></p>
         <div style="background:#f1f5f9; padding:12px; border-radius:8px; font-size:0.8rem; line-height:1.6;">
             <b>【全持ち家共通】</b><br>
-            実質コスト = (初期費用 + 利息累計 + 維持費累計 + 資産減) - 控除累計<br>
+            実質コスト = (初期費用 + 利息累計 + 維持費累計 + 固定資産税累計 + 資産減) - 控除累計<br>
             ※資産減 = 購入価格 − 売却価格 (下限考慮)<br><br>
-            
-            <b>【マンション(新築/中古)】</b><br>
-            ・維持費 = (管理費 + 修繕積立金) × 12ヶ月<br>
-            ・修繕積立金は設定した「上昇率」で毎年複利加算。<br><br>
-            
-            <b>【戸建て(新築/中古)】</b><br>
-            ・維持費 = 設定した「修繕総額」を「修繕スパン」で割った月額換算値を累積。<br><br>
-            
+            <b>【マンション/戸建て】</b><br>
+            ・維持費には「管理費/修繕費」に加え、入力された「固定資産税」の年数分が含まれます。<br><br>
             <b>【賃貸】</b><br>
             ・実質コスト = (家賃累計 + 更新料累計 + 初期費用)<br>
-            ・更新料 = 2年ごとに家賃1ヶ月分と仮定。
+            ・更新料 = 2年ごとに家賃1ヶ月分と仮定。固定資産税は0円。
         </div>
-
         <p><b>■ 住宅ローン控除 区分表 (2026年)</b></p>
         <table class="tax-table">
             <thead><tr><th>区分</th><th>限度額(通常)</th><th>限度額(子育て)</th><th>控除率</th><th>期間</th></tr></thead>
@@ -150,7 +142,6 @@
                 <tr><td>中古（その他）</td><td colspan="2">2,000万</td><td>0.7%</td><td>10年</td></tr>
             </tbody>
         </table>
-
         <p><b>■ 資産価値(残価)の下限設定</b></p>
         <table class="tax-table">
             <tr><th>物件区分</th><th>残価下限率</th><th>年減価率(初期)</th></tr>
@@ -169,10 +160,10 @@
 
     const store = {
         rent: { price: 18, taxType: 'none', depr: 0, minRes: 0 },
-        nm: { price: 7000, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3500', depr: 1.8, minRes: 40 },
-        om: { price: 6500, ref: 100, maint: 1.8, shuzen: 1.8, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 50 },
-        nh: { price: 6500, shuzen_total: 400, span: 15, taxType: '3500', depr: 3.5, minRes: 30 },
-        oh: { price: 6000, ref: 100, shuzen_total: 400, span: 15, taxType: '3000', depr: 2.0, minRes: 45 }
+        nm: { price: 7000, maint: 1.5, shuzen: 1.5, rate_inc: 3.0, taxType: '3500', depr: 1.8, minRes: 40, kotei: 15 },
+        om: { price: 6500, ref: 100, maint: 1.8, shuzen: 1.8, rate_inc: 3.0, taxType: '3000', depr: 1.2, minRes: 50, kotei: 12 },
+        nh: { price: 6500, shuzen_total: 400, span: 15, taxType: '3500', depr: 3.5, minRes: 30, kotei: 12 },
+        oh: { price: 6000, ref: 100, shuzen_total: 400, span: 15, taxType: '3000', depr: 2.0, minRes: 45, kotei: 10 }
     };
 
     const config = {
@@ -203,8 +194,10 @@
             if(document.getElementById('val_shuzen')) s.shuzen = parseFloat(document.getElementById('val_shuzen').value || 0);
             if(document.getElementById('val_rate_inc')) s.rate_inc = parseFloat(document.getElementById('val_rate_inc').value || 0);
             if(document.getElementById('val_shuzen_total')) s.shuzen_total = parseFloat(document.getElementById('val_shuzen_total').value || 0);
+            if(document.getElementById('val_span')) s.span = parseFloat(document.getElementById('val_span').value || 15);
             if(document.getElementById('val_depr')) s.depr = parseFloat(document.getElementById('val_depr').value || 0);
             if(document.getElementById('val_minres')) s.minRes = parseFloat(document.getElementById('val_minres').value || 0);
+            if(document.getElementById('val_kotei')) s.kotei = parseFloat(document.getElementById('val_kotei').value || 0);
             if(document.getElementById('val_tax_type')) s.taxType = document.getElementById('val_tax_type').value;
         }
     }
@@ -223,6 +216,7 @@
                 html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="liveCalc()"></div>`;
                 html += `<div class="field"><label>修繕スパン (年)</label><input type="number" id="val_span" value="${s.span}" oninput="liveCalc()"></div>`;
             }
+            html += `<div class="field"><label>固定資産税 (年/万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="liveCalc()"></div>`;
             html += `<div class="field"><label>減価率 (年%)</label><input type="number" id="val_depr" value="${s.depr}" step="0.1" oninput="liveCalc()"></div>`;
             html += `<div class="field"><label>残価下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" step="1" oninput="liveCalc()"></div>`;
             html += `<div class="field"><label>控除区分</label><select id="val_tax_type" onchange="liveCalc()"><option value="4500" ${s.taxType==='4500'?'selected':''}>長期優良</option><option value="3500" ${s.taxType==='3500'?'selected':''}>ZEH</option><option value="3000" ${s.taxType==='3000'?'selected':''}>省エネ</option><option value="2000" ${s.taxType==='2000'?'selected':''}>一般中古</option></select></div>`;
@@ -247,7 +241,7 @@
         else {
             const res = getLoanMonthly(s.price, gRate, gTerm);
             i = res.interestInitial; p = res.total - i; init = (s.price * 0.07) + (s.ref || 0);
-            m = activeTab.includes('m') ? (s.maint + s.shuzen) : (s.shuzen_total / (15 * 12));
+            m = activeTab.includes('m') ? (s.maint + s.shuzen + (s.kotei/12)) : (s.shuzen_total / (s.span * 12) + (s.kotei/12));
         }
         document.getElementById('live_monthly').innerText = (p + i + m).toFixed(1) + " 万円";
         document.getElementById('initial_display').innerText = `初期費用目安: ${Math.round(init).toLocaleString()} 万円`;
@@ -304,13 +298,17 @@
                         }
                     }
                     const yearlyMaint = id.includes('m') ? (s.maint + currentSz) * 12 : (s.shuzen_total / (s.span || 15));
-                    currentTotalMaint += yearlyMaint;
+                    currentTotalMaint += (yearlyMaint + (s.kotei || 0));
                     if(id.includes('m')) currentSz *= (1 + (s.rate_inc / 100));
 
+                    // 住宅ローン控除ロジック修正: 子育て世帯反映
                     let limit = parseInt(s.taxType);
-                    if(child == 1) {
-                        if(limit === 4500) limit = 5000; else if(limit === 3500) limit = 4500; else if(limit === 3000) limit = 4000;
+                    if(child == 1) { 
+                        if(limit === 4500) limit = 5000;
+                        else if(limit === 3500) limit = 4500;
+                        else if(limit === 3000) limit = 4000;
                     }
+                    
                     if(y <= (id.includes('n') ? 13 : 10)) {
                         currentTotalTax += Math.min(Math.max(loanRemain, 0), limit * pair) * 0.007;
                     }
