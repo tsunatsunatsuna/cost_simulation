@@ -115,19 +115,56 @@
     </div>
 </div>
 
-<div id="modal-logic" class="modal">
+<div id="modalInfo" class="modal">
     <div class="modal-content">
-        <h3>📊 算出定義とシミュレーション条件</h3>
-        <p><b>■ 基本計算式</b></p>
-        <div style="background:#f1f5f9; padding:15px; border-radius:8px; font-size:0.8rem; line-height:1.6;">
-            <b>1. 負担額累計 (実線)</b> = 初期費用 + ローン支払累計(元利) + 維持費累計 + 固定資産税累計<br>
-            <b>2. 実質総負担額 (点線)</b> = 負担額累計 - (想定売却価格 + 住宅ローン控除累計)
-        </div>
+        <h3 id="info-title">📊 算出定義とシミュレーション条件</h3>
+        
+        <div id="info-body"></div>
+
         <button class="close-btn" onclick="UI.closeModal()">閉じる</button>
     </div>
 </div>
 
 <script>
+
+
+/**
+ * ==========================================
+ * INFO_CONTENT: 算出定義・制度マスター統合版
+ * ==========================================
+ */
+const INFO_CONTENT = {
+    title: "📊 算出定義とシミュレーション条件",
+    
+    // 1. 基本計算式
+    formula: {
+        title: "■ 基本計算式",
+        items: [
+            { label: "1. 負担額累計 (実線)", desc: "初期費用 + ローン支払累計(元利) + 維持費累計 + 固定資産税累計" },
+            { label: "2. 実質総負担額 (点線)", desc: "負担額累計 - (想定売却価格 + 住宅ローン控除累計)" }
+        ]
+    },
+
+    // 2. 住宅ローン控除 制度一覧表 (新規追加)
+    taxTable: {
+        title: "■ 住宅ローン控除制度一覧 (2024-2025年居住)",
+        header: ["区分", "通常世帯", "👶子供あり", "控除率", "期間"],
+        rows: [
+            ["新築(長期優良)", "4,500万円", "5,000万円", "0.7%", "13年"],
+            ["新築(ZEH水準)", "3,500万円", "4,500万円", "0.7%", "13年"],
+            ["新築(省エネ)", "3,000万円", "4,000万円", "0.7%", "13年"],
+            ["中古(長期/省エネ)", "3,000万円", "3,000万円", "0.7%", "10年"],
+            ["中古(その他)", "2,000万円", "2,000万円", "0.7%", "10年"]
+        ]
+    },
+
+    // 3. 詳細解説
+    sections: [
+        { h: "1. 住宅ローン控除の計算", p: "各年末の元金残高に対し、上記表の限度額と控除率を適用。ペアローンの場合は「限度額×2」として算出します。" },
+        { h: "2. 資産価値（売却予想価格）", p: "建物減価を反映した価格から、売却諸経費(4%)を差し引いた実質手残り額。下限設定により土地価値を考慮しています。" },
+        { h: "3. 維持費の変動", p: "マンションは5年ごとの修繕積立金上昇を、戸建ては15年周期の大型メンテ費用を月割計算して算入しています。" }
+    ]
+};
 /**
  * ==========================================
  * 1. DATA (変数の資材)
@@ -139,6 +176,15 @@ const CONFIG = {
     om: { label: '中古マン', color: '#0ea5e9' },
     nh: { label: '新築戸建', color: '#ea580c' },
     oh: { label: '中古戸建', color: '#8b5cf6' }
+};
+    
+// 借入限度額（万円）: [一般世帯, 子育て・若夫婦世帯]
+const TAX_LIMIT_MASTER = {
+    "4500": [4500, 5000], // 長期優良住宅・低炭素住宅
+    "3500": [3500, 4500], // ZEH水準省エネ住宅
+    "3000": [3000, 4000], // 省エネ基準適合住宅
+    "2000": [2000, 2000], // 一般中古住宅・その他の住宅
+    "none": [0, 0]        // 賃貸等
 };
 
 let store = {
@@ -329,6 +375,44 @@ const UI = {
     openModal(id) { document.getElementById('modal-' + id).style.display = 'flex'; },
     closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 };
+
+    openModal() {
+    const bodyEl = document.getElementById('info-body');
+    
+    // 1. 基本計算式の構築
+    let html = `
+        <p><b>${INFO_CONTENT.formula.title}</b></p>
+        <div style="background:#f1f5f9; padding:15px; border-radius:8px; font-size:0.8rem; line-height:1.6; margin-bottom:20px;">
+            ${INFO_CONTENT.formula.items.map(i => `<b>${i.label}</b> = ${i.desc}<br>`).join('')}
+        </div>`;
+
+    // 2. 住宅ローン控除 制度一覧表の構築
+    html += `
+        <p><b>${INFO_CONTENT.taxTable.title}</b></p>
+        <table style="width:100%; border-collapse:collapse; font-size:0.65rem; margin-bottom:20px; text-align:center; line-height:1.2;">
+            <thead>
+                <tr style="background:#e2e8f0;">
+                    ${INFO_CONTENT.taxTable.header.map(h => `<th style="padding:8px; border:1px solid #cbd5e1;">${h}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${INFO_CONTENT.taxTable.rows.map(r => `
+                    <tr>${r.map(td => `<td style="padding:8px; border:1px solid #cbd5e1; background:white;">${td}</td>`).join('')}</tr>
+                `).join('')}
+            </tbody>
+        </table>`;
+
+    // 3. 詳細解説セクションの構築
+    html += INFO_CONTENT.sections.map(s => `
+        <div style="margin-bottom:15px;">
+            <div style="font-weight:bold; color:#0f172a; margin-bottom:4px; font-size:0.85rem;">${s.h}</div>
+            <div style="font-size:0.8rem; color:#475569; line-height:1.5;">${s.p}</div>
+        </div>
+    `).join('');
+
+    bodyEl.innerHTML = html;
+    document.getElementById('modalInfo').style.display = 'flex';
+}
 
 window.onload = () => { UI.renderInputs(); UI.liveCalc(); };
 </script>
