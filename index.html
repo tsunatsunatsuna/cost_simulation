@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>住まいの生涯コスト比較 Pro v16.11</title>
+    <title>住まいの生涯コスト比較 Pro v16.12</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -43,7 +43,7 @@
 <body>
 
 <div class="container">
-    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.11</h1>
+    <h1 style="text-align:center">🏠 住まいの生涯コスト比較 Pro v16.12</h1>
 
     <div class="card">
         <div class="section-title">1. 基本ローン・世帯設定</div>
@@ -229,7 +229,7 @@ const UI = {
             if(activeTab.includes('m')) {
                 html += `<div class="field"><label>管理費 (万)</label><input type="number" id="val_maint" value="${s.maint}" oninput="UI.liveCalc()"></div><div class="field"><label>修繕金 (万)</label><input type="number" id="val_shuzen" value="${s.shuzen}" oninput="UI.liveCalc()"></div><div class="field"><label>修繕費上昇 (%)</label><input type="number" id="val_shuzen_inc" value="${s.shuzen_inc}" step="0.1" oninput="UI.liveCalc()"></div>`;
             } else {
-                html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="UI.liveCalc()"></div>`;
+                html += `<div class="field"><label>修繕総額 (万)</label><input type="number" id="val_shuzen_total" value="${s.shuzen_total}" oninput="UI.liveCalc()"></div><div class="field"><label>修繕周期 (年)</label><input type="number" id="val_span" value="${s.span}" oninput="UI.liveCalc()"></div>`;
             }
             html += `<div class="field"><label>固税 (万)</label><input type="number" id="val_kotei" value="${s.kotei}" oninput="UI.liveCalc()"></div><div class="field"><label>減価率 (%)</label><input type="number" id="val_depr" value="${s.depr}" oninput="UI.liveCalc()"></div><div class="field"><label>下限 (%)</label><input type="number" id="val_minres" value="${s.minRes}" oninput="UI.liveCalc()"></div>`;
             html += `<div class="field"><label>区分</label><select id="val_tax_type" onchange="UI.liveCalc()"><option value="4500" ${s.taxType==='4500'?'selected':''}>長期</option><option value="3500" ${s.taxType==='3500'?'selected':''}>ZEH</option><option value="2000" ${s.taxType==='2000'?'selected':''}>一般</option></select></div>`;
@@ -249,7 +249,7 @@ const UI = {
             else {
                 const res = Calc.getLoanMonthly(s.price, gRate, gTerm);
                 p = res.total - (s.price * (gRate/100/12)); i = s.price * (gRate/100/12);
-                m = id.includes('m') ? (s.maint + s.shuzen + s.kotei/12) : (s.shuzen_total/180 + s.kotei/12);
+                m = id.includes('m') ? (s.maint + s.shuzen + s.kotei/12) : (s.shuzen_total/(s.span*12) + s.kotei/12);
             }
             grid.innerHTML += `<div class="comp-item"><div class="comp-label"><span style="color:${CONFIG[id].color}">●</span> ${CONFIG[id].label}</div><div style="height:40px;"><canvas id="mini_${id}"></canvas></div><div class="comp-value">${(p + i + m).toFixed(1)} 万円/月</div></div>`;
             
@@ -296,13 +296,13 @@ const UI = {
                     const paidLoan = (y <= gTerm) ? (res.total * 12 * y) : (res.total * 12 * gTerm);
                     const remLoan = Calc.getLoanRemAtYear(s.price, gRate, gTerm, y);
                     
-                    // 維持費計算（管理費は固定、修繕費は毎年上昇を反映）
                     if(id.includes('m')) {
                         const currentMaint = s.maint;
                         const currentShuzen = s.shuzen * Math.pow(1 + (s.shuzen_inc/100), y - 1);
                         cMaint += (currentMaint + currentShuzen) * 12 + s.kotei;
                     } else {
-                        cMaint += (s.shuzen_total/15)*12 + s.kotei;
+                        // 戸建て維持費：(修繕総額 / 周期) ＋ 固定資産税
+                        cMaint += (s.shuzen_total / s.span) + s.kotei;
                     }
                     
                     if(y <= 13) {
