@@ -55,52 +55,105 @@ const UI = {
         });
     },
 
-    runSimulation() {
-        this.saveCurrentValues();
-        document.getElementById('resultArea').style.display = 'block';
-        const exitYear = parseInt(document.getElementById('exit_year').value);
-        const pair = parseInt(document.getElementById('is_pair').value);
-        const child = parseInt(document.getElementById('is_child').value);
-        const rate = parseFloat(document.getElementById('global_rate').value);
-        const term = parseInt(document.getElementById('global_term').value);
-        let datasets = [], rows = '';
+runSimulation() {
+    this.saveCurrentValues();
+    document.getElementById('resultArea').style.display = 'block';
+    
+    const exitYear = parseInt(document.getElementById('exit_year').value);
+    const pair = parseInt(document.getElementById('is_pair').value);
+    const child = parseInt(document.getElementById('is_child').value); // 0:一般, 1:子育て
+    const rate = parseFloat(document.getElementById('global_rate').value);
+    const term = parseInt(document.getElementById('global_term').value);
+    
+    let datasets = [], rows = '';
 
-        Object.keys(CONFIG).forEach(id => {
-            const s = store[id];
-            let hGross = [], hNet = [], cMaint = 0, cTax = 0;
-            const res = Calc.getLoanMonthly(s.price, rate, term);
-            const init = id === 'rent' ? s.price * 5 : s.price * 0.08 + (s.ref || 0);
+    Object.keys(CONFIG).forEach(id => {
+        const s = store[id];
+        let hGross = [], hNet = [], cMaint = 0, cTax = 0;
+        
+        // 住宅ローンの毎月支払額（元利均等）
+        const res = Calc.getLoanMonthly(s.price, rate, term);
+        
+        // 初期費用の計算（賃貸は5ヶ月分、購入は8%＋リフォーム）
+        const init = id === 'rent' ? s.price * 5 : (s.price * 0.08) + (s.ref || 0);
 
-            for(let y=1; y<=50; y++) {
-                if(id === 'rent') {
-                    cMaint += (s.price * 12 + (y%2===0?s.price:0));
-                    hGross.push(init + cMaint); hNet.push(init + cMaint);
-                } else {
-                    const paid = res.total * 12 * Math.min(y, term);
-                    cMaint += (id.includes('m') ? (s.maint+s.shuzen)*12 : (s.shuzen_total/15)*12) + s.kotei;
-                    if(y <= 13) {
-                        let limit = parseInt(s.taxType);
-                        if(child == 1) limit += 500;
-                        cTax += Math.min(Calc.getLoanRemAtYear(s.price, rate, term, y), limit * pair) * 0.007;
-                    }
-                    const asset = Calc.getAssetValue(s.price, s.depr, y, s.minRes);
-                    hGross.push(Math.round(init + paid + cMaint)); 
-                    hNet.push(Math.round(init + paid + cMaint - asset - cTax));
+        for(let y = 1; y <= 50; y++) {
+            if(id === 'rent') {
+                // 賃貸の計算：賃料＋2年ごとの更新料（家賃1ヶ月分）
+                cMaint += (s.price * 12 + (y % 2 === 0 ? s.price : 0));
+                const totalOut = init + cMaint;
+                hGross.push(totalOut);
+                hNet.push(totalOut); // 賃貸は資産価値ゼロのため
+            } else {
+                // 購入の計算
+                const paidLoan = (y <= term) ? (res.total * 12 * y) : (res.total * 12 * term);
+                
+                // 維持費の計算（マンションは修繕積立金上昇を考慮、戸建ては定額積み立て仮想）
+                const monthlyMaint = id.includes('m') 
+                    ? (s.maint + (s.shuzen * Math.pow(1 + (s.rate_inc/100), Math.floor(y/5)))) 
+                    : (s.shuzen_total / (s.span || 15) / 12);
+                cMaint += (monthlyMaint * 12) + s.kotei;
+
+                // 【修正ポイント】住宅ローン控除：マスターデータから限度額を判定
+                if(y <= 13) {
+                    const limits = TAX_LIMIT_MASTER[s.taxType] || [0, 0];
+                    const yearlyLimit = limits[child]; // 子育て世帯ならインデックス[1]を参照
+                    
+                    // 年末時点の元金残高を取得
+                    const loanBalance = Calc.getLoanRemAtYear(s.price, rate, term, y);
+                    
+                    // 控除額 ＝ min(年末残高, 限度額 * 人数) * 0.7%
+                    const annualTaxCredit = Math.min(loanBalance, yearlyLimit * pair) * 0.007;
+                    cTax += annualTaxCredit;
                 }
-                if(y === exitYear) {
-                    const curAsset = id === 'rent' ? 0 : Calc.getAssetValue(s.price, s.depr, y, s.minRes);
-                    rows += `<tr><td style="text-align:left; border-left:4px solid ${CONFIG[id].color}">${CONFIG[id].label}</td><td>${Math.round(hGross[y-1]-cMaint-init).toLocaleString()}</td><td>${Math.round(init)}</td><td>${Math.round(cMaint).toLocaleString()}</td><td>${Math.round(cTax).toLocaleString()}</td><td>${Math.round(curAsset).toLocaleString()}</td><td style="font-weight:bold;">${Math.round(hNet[y-1]).toLocaleString()}</td></tr>`;
-                }
+
+                // 現時点の資産価値（売却手残り）
+                const currentAsset = Calc.getAssetValue(s.price, s.depr, y, s.minRes);
+                
+                const gross = Math.round(init + paidLoan + cMaint);
+                const net = Math.round(gross - currentAsset - cTax);
+                
+                hGross.push(gross);
+                hNet.push(net);
             }
-            datasets.push({ label: CONFIG[id].label, data: hGross, borderColor: CONFIG[id].color, pointRadius: 0, tension: 0.1 });
-            datasets.push({ label: CONFIG[id].label + '(実)', data: hNet, borderColor: CONFIG[id].color, borderDash: [5, 5], pointRadius: 0, tension: 0.1 });
-        });
 
-        if(this.chart) this.chart.destroy();
-        this.chart = new Chart(document.getElementById('mainChart').getContext('2d'), { type: 'line', data: { labels: Array.from({length: 50}, (_, i) => i + 1 + "年"), datasets }, options: { maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-        document.getElementById('resTable').querySelector('tbody').innerHTML = rows;
-    },
+            // 指定した経過年数時点での詳細データを表にまとめる
+            if(y === exitYear) {
+                const finalAsset = id === 'rent' ? 0 : Calc.getAssetValue(s.price, s.depr, y, s.minRes);
+                const paidLoanVal = id === 'rent' ? 0 : (y <= term ? res.total * 12 * y : res.total * 12 * term);
+                
+                rows += `
+                <tr>
+                    <td style="text-align:left; border-left:4px solid ${CONFIG[id].color}">${CONFIG[id].label}</td>
+                    <td>${Math.round(paidLoanVal).toLocaleString()}万</td>
+                    <td>${Math.round(init).toLocaleString()}万</td>
+                    <td>${Math.round(cMaint).toLocaleString()}万</td>
+                    <td style="color:#16a34a">-${Math.round(cTax).toLocaleString()}万</td>
+                    <td style="background:#fff7ed">${Math.round(finalAsset).toLocaleString()}万</td>
+                    <td style="font-weight:bold; background:#f0f9ff;">${Math.round(hNet[y-1]).toLocaleString()}万円</td>
+                </tr>`;
+            }
+        }
+        
+        // グラフデータの追加
+        datasets.push({ label: CONFIG[id].label + '(総支出)', data: hGross, borderColor: CONFIG[id].color, pointRadius: 0, tension: 0.1, hidden: false });
+        datasets.push({ label: CONFIG[id].label + '(実質)', data: hNet, borderColor: CONFIG[id].color, borderDash: [5, 5], pointRadius: 0, tension: 0.1 });
+    });
 
+    // Chart.js の更新
+    if(this.chart) this.chart.destroy();
+    this.chart = new Chart(document.getElementById('mainChart').getContext('2d'), {
+        type: 'line',
+        data: { labels: Array.from({length: 50}, (_, i) => i + 1 + "年目"), datasets },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+            scales: { y: { ticks: { callback: v => v.toLocaleString() + '万' } } }
+        }
+    });
+    
+    document.getElementById('resTable').querySelector('tbody').innerHTML = rows;
+},
     openModal() {
         document.getElementById('info-title').innerText = INFO_CONTENT.title;
         document.getElementById('info-body').innerHTML = INFO_CONTENT.sections.map(s => `<div style="margin-bottom:12px;"><b>${s.h}</b><br><small>${s.p}</small></div>`).join('');
